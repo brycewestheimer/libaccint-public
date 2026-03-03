@@ -1,0 +1,61 @@
+[build-system]
+requires = ["scikit-build-core>=0.8", "pybind11>=2.12", "numpy>=1.21"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "libaccint"
+version = "0.1.0a2"  # Must match CMakeLists.txt VERSION (PEP 440 alpha)
+description = "High-performance molecular integral library with GPU acceleration"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+authors = [
+    {name = "Bryce M. Westheimer"}
+]
+requires-python = ">=3.9"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: POSIX :: Linux",
+    "Operating System :: MacOS",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+keywords = ["quantum chemistry", "molecular integrals", "GPU", "HPC"]
+dependencies = [
+    "numpy>=1.21",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/brycewestheimer/libaccint-public"
+Documentation = "https://libaccint.readthedocs.io"
+Repository = "https://github.com/brycewestheimer/libaccint-public"
+
+[tool.scikit-build]
+cmake.args = [
+    "-DLIBACCINT_BUILD_PYTHON=ON",
+    "-DLIBACCINT_RELOCATABLE=ON",
+    "-DLIBACCINT_ALLOW_FETCHCONTENT=OFF",
+]
+wheel.packages = ["libaccint"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_functions = ["test_*"]
+addopts = ["-v", "--tb=short"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]

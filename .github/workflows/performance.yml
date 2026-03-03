@@ -1,0 +1,160 @@
+# Performance Regression Detection - Benchmark comparison in CI
+# Task 26.1.1: Detects regressions exceeding 10% in key benchmarks
+name: Performance
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================================
+  # Performance Benchmarks
+  # ==========================================================================
+  benchmark:
+    name: Performance benchmark
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libomp-dev jq bc
+
+      - name: Configure CMake (with benchmarks)
+        run: |
+          cmake -B build/benchmark -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLIBACCINT_USE_CUDA=OFF \
+            -DLIBACCINT_USE_OPENMP=ON \
+            -DLIBACCINT_BUILD_TESTS=OFF \
+            -DLIBACCINT_BUILD_EXAMPLES=OFF \
+            -DLIBACCINT_BUILD_BENCHMARKS=ON
+
+      - name: Build benchmarks
+        run: cmake --build build/benchmark --parallel
+
+      - name: Run benchmarks (JSON output)
+        run: |
+          mkdir -p benchmark-results
+          
+          # Run each benchmark and capture JSON output
+          for bench in build/benchmark/tests/benchmark/bench_*; do
+            if [ -x "$bench" ]; then
+              BENCH_NAME=$(basename "$bench")
+              echo "Running $BENCH_NAME..."
+              "$bench" --benchmark_format=json \
+                --benchmark_out="benchmark-results/${BENCH_NAME}.json" \
+                --benchmark_repetitions=5 \
+                --benchmark_min_warmup_time=1 \
+                2>&1 || true
+            fi
+          done
+
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results-${{ github.sha }}
+          path: benchmark-results/
+          retention-days: 90
+
+      - name: Download baseline (main branch)
+        if: github.event_name == 'pull_request'
+        uses: dawidd6/action-download-artifact@v3
+        with:
+          workflow: performance.yml
+          branch: main
+          name: benchmark-results-*
+          path: baseline-results/
+          if_no_artifact_found: warn
+        continue-on-error: true
+
+      - name: Compare with baseline
+        if: github.event_name == 'pull_request'
+        id: compare
+        run: |
+          REGRESSION_THRESHOLD=10  # Percentage
+          REGRESSION_FOUND=false
+          REPORT=""
+          
+          if [ ! -d "baseline-results" ] || [ -z "$(ls -A baseline-results/ 2>/dev/null)" ]; then
+            echo "No baseline found — skipping comparison"
+            echo "comparison=skip" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          
+          REPORT="## Performance Comparison\n\n"
+          REPORT+="| Benchmark | Baseline (ns) | Current (ns) | Change | Status |\n"
+          REPORT+="|-----------|--------------|-------------|--------|--------|\n"
+          
+          for current_file in benchmark-results/*.json; do
+            BENCH_NAME=$(basename "$current_file")
+            baseline_file="baseline-results/${BENCH_NAME}"
+            
+            if [ ! -f "$baseline_file" ]; then
+              continue
+            fi
+            
+            # Extract benchmark timings using jq
+            while IFS= read -r line; do
+              name=$(echo "$line" | jq -r '.name')
+              current_time=$(echo "$line" | jq -r '.real_time')
+              
+              # Find matching benchmark in baseline
+              baseline_time=$(jq -r --arg name "$name" \
+                '.benchmarks[] | select(.name == $name) | .real_time' \
+                "$baseline_file" 2>/dev/null)
+              
+              if [ -n "$baseline_time" ] && [ "$baseline_time" != "null" ]; then
+                # Calculate percentage change
+                change=$(echo "scale=2; (($current_time - $baseline_time) / $baseline_time) * 100" | bc 2>/dev/null || echo "0")
+                
+                if (( $(echo "$change > $REGRESSION_THRESHOLD" | bc -l 2>/dev/null || echo 0) )); then
+                  STATUS="❌ REGRESSION"
+                  REGRESSION_FOUND=true
+                elif (( $(echo "$change < -$REGRESSION_THRESHOLD" | bc -l 2>/dev/null || echo 0) )); then
+                  STATUS="🚀 IMPROVED"
+                else
+                  STATUS="✅ OK"
+                fi
+                
+                REPORT+="| ${name} | ${baseline_time} | ${current_time} | ${change}% | ${STATUS} |\n"
+              fi
+            done < <(jq -c '.benchmarks[]' "$current_file" 2>/dev/null)
+          done
+          
+          echo -e "$REPORT" > performance-report.md
+          
+          if [ "$REGRESSION_FOUND" = true ]; then
+            echo "comparison=regression" >> $GITHUB_OUTPUT
+          else
+            echo "comparison=pass" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Comment on PR
+        if: github.event_name == 'pull_request' && steps.compare.outputs.comparison != 'skip'
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          header: performance
+          path: performance-report.md
+
+      - name: Fail on regression
+        if: steps.compare.outputs.comparison == 'regression'
+        run: |
+          echo "::error::Performance regression detected (>10% slowdown)"
+          cat performance-report.md
+          exit 1

@@ -1,0 +1,17 @@
+Date: 2026-02-24
+System cap: MemoryHigh=10G, MemoryMax=12G
+Backend: force-gpu
+Basis: cc-pvdz
+
+Case                                BasisFns   max_iter  Exit  Time(s)  Converged  Energy/LastEnergy                 Compare delta (final)
+water_trimer_consumer_full          75         120       0     39.91    yes        -284.9381152411                  n/a
+water_trimer_buffer_full            75         120       0     255.53   yes        -284.9381152411                  n/a
+water_trimer_compare_full           75         120       0     292.94   yes        -284.9381152411                  J=3.553e-15, K=3.553e-15
+
+water_hexamer_consumer_full         150        120       0     307.36   yes        -554.3441286318                  n/a
+water_hexamer_buffer_iter5          150        5         1     361.00   no         last=-555.4857105532             n/a
+water_hexamer_compare_iter5         150        5         1     386.82   no         last=-555.4857105532             J=1.421e-14, K=2.776e-15
+
+Notes:
+- Full-convergence hexamer buffer/compare were not run to completion in this pass because buffer-mode host-side accumulation is much slower; bounded 5-iteration probes were used.
+- For compare mode, delta values are max|J_buffer-J_consumer| and max|K_buffer-K_consumer| from the final printed iteration.

@@ -1,0 +1,304 @@
+# Release - Automated release workflow for LibAccInt
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag to release (must match repo metadata, e.g., v0.1.0-alpha.1)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        type: boolean
+        default: false
+      draft:
+        description: 'Create as draft release?'
+        required: false
+        type: boolean
+        default: true
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  # ==========================================================================
+  # Validate Release
+  # ==========================================================================
+  validate:
+    name: Validate release
+    runs-on: ubuntu-22.04
+
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      version_runtime: ${{ steps.version.outputs.version_runtime }}
+      version_python: ${{ steps.version.outputs.version_python }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate version and metadata
+        id: version
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version }}"
+          EXPECTED_TAG="$(python3 scripts/version_info.py --field tag)"
+          EXPECTED_RUNTIME="$(python3 scripts/version_info.py --field runtime)"
+          EXPECTED_PYTHON="$(python3 scripts/version_info.py --field python)"
+
+          if [[ "$INPUT_VERSION" != "$EXPECTED_TAG" ]]; then
+            echo "::error::Release input '$INPUT_VERSION' does not match repository version '$EXPECTED_TAG'"
+            exit 1
+          fi
+
+          python3 scripts/validate_version.py
+
+          echo "version=$EXPECTED_TAG" >> $GITHUB_OUTPUT
+          echo "version_runtime=$EXPECTED_RUNTIME" >> $GITHUB_OUTPUT
+          echo "version_python=$EXPECTED_PYTHON" >> $GITHUB_OUTPUT
+
+      - name: Check tag doesn't exist
+        run: |
+          if git rev-parse "${{ steps.version.outputs.version }}" >/dev/null 2>&1; then
+            echo "::error::Tag ${{ steps.version.outputs.version }} already exists"
+            exit 1
+          fi
+
+      - name: Verify required CI checks
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          SHA=$(git rev-parse HEAD)
+          mapfile -t CHECKS < <(gh api repos/${{ github.repository }}/commits/$SHA/check-runs --paginate --jq '.check_runs[] | select(.status == "completed") | "\(.name):\(.conclusion)"')
+          REQUIRED_CHECKS=("CI Summary" "Python CI Summary" "CUDA CI Summary")
+
+          for required in "${REQUIRED_CHECKS[@]}"; do
+            if ! printf '%s\n' "${CHECKS[@]}" | grep -Fxq "${required}:success"; then
+              echo "::error::Required check '${required}' did not complete successfully"
+              printf '%s\n' "${CHECKS[@]}"
+              exit 1
+            fi
+          done
+
+  # ==========================================================================
+  # Build Release Artifacts
+  # ==========================================================================
+  build-artifacts:
+    name: Build artifacts (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            artifact_name: libaccint-linux-x86_64
+          - os: macos-13
+            artifact_name: libaccint-macos-x86_64
+          - os: macos-14
+            artifact_name: libaccint-macos-arm64
+          - os: windows-2022
+            artifact_name: libaccint-windows-x86_64
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libomp-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja libomp
+
+      - name: Install dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja
+
+      - name: Setup MSVC (Windows)
+        if: runner.os == 'Windows'
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Configure CMake
+        run: |
+          cmake --preset release-package
+
+      - name: Build
+        run: cmake --build --preset release-package
+
+      - name: Run tests
+        run: ctest --preset release-package -L release
+
+      - name: Package artifacts (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cmake --install build/release-package --prefix package
+          cp LICENSE README.md package/
+          tar -czvf ${{ matrix.artifact_name }}.tar.gz -C package .
+
+      - name: Package artifacts (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cmake --install build/release-package --prefix package
+          copy LICENSE package\
+          copy README.md package\
+          7z a ${{ matrix.artifact_name }}.zip .\package\*
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_name }}.*
+          retention-days: 30
+
+  # ==========================================================================
+  # Build Python Wheels
+  # ==========================================================================
+  build-wheels:
+    name: Build Python wheels
+    runs-on: ${{ matrix.os }}
+    needs: validate
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, macos-13, macos-14, windows-2022]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build
+
+      - name: Install system dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Install system dependencies (Windows)
+        if: runner.os == 'Windows'
+        run: choco install ninja
+
+      - name: Build wheels
+        uses: pypa/cibuildwheel@v2.16
+        with:
+          package-dir: python
+          output-dir: wheelhouse
+        env:
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_SKIP: "*-win32 *-manylinux_i686 *-musllinux*"
+          CIBW_TEST_COMMAND: >-
+            python -c "import libaccint; atoms=[libaccint.Atom(1,[0.0,0.0,0.0]), libaccint.Atom(1,[0.0,0.0,1.4])]; basis=libaccint.basis_set('sto-3g', atoms); engine=libaccint.Engine(basis); engine.compute_overlap_matrix(); print(libaccint.__version__)"
+
+      - name: Upload wheels
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+          retention-days: 30
+
+  # ==========================================================================
+  # Create Release
+  # ==========================================================================
+  create-release:
+    name: Create GitHub release
+    runs-on: ubuntu-22.04
+    needs: [validate, build-artifacts, build-wheels]
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: List artifacts
+        run: find release-artifacts -type f
+
+      - name: Create source archive
+        run: |
+          git archive --format=tar.gz --prefix=libaccint-${{ needs.validate.outputs.version_runtime }}/ \
+            -o release-artifacts/libaccint-${{ needs.validate.outputs.version_runtime }}.tar.gz HEAD
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          echo "## LibAccInt ${{ needs.validate.outputs.version }}" > RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### Installation" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo '```bash' >> RELEASE_NOTES.md
+          echo "pip install libaccint==${{ needs.validate.outputs.version_python }}" >> RELEASE_NOTES.md
+          echo '```' >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "### What's Changed" >> RELEASE_NOTES.md
+          echo "" >> RELEASE_NOTES.md
+          echo "See [CHANGELOG.md](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) for details." >> RELEASE_NOTES.md
+
+      - name: Create Git tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${{ needs.validate.outputs.version }}" -m "Release ${{ needs.validate.outputs.version }}"
+          git push origin "${{ needs.validate.outputs.version }}"
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.validate.outputs.version }}
+          name: LibAccInt ${{ needs.validate.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          draft: ${{ github.event.inputs.draft }}
+          prerelease: ${{ github.event.inputs.prerelease }}
+          files: |
+            release-artifacts/**/*.tar.gz
+            release-artifacts/**/*.zip
+            release-artifacts/**/*.whl
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ==========================================================================
+  # Publish to PyPI
+  # ==========================================================================
+  publish-pypi:
+    name: Publish to PyPI
+    runs-on: ubuntu-22.04
+    needs: [validate, create-release]
+    if: ${{ github.event.inputs.draft == 'false' }}
+    environment:
+      name: pypi
+      url: https://pypi.org/project/libaccint
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download wheels
+        uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+
+      - name: List packages
+        run: ls -la dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+          skip-existing: true

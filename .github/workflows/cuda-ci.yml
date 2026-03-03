@@ -1,0 +1,144 @@
+# CUDA CI - NVIDIA GPU build and test workflow for LibAccInt
+name: CUDA CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/device/cuda/**'
+      - 'include/libaccint/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - '.github/workflows/cuda-ci.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/device/cuda/**'
+      - 'include/libaccint/**'
+      - 'CMakeLists.txt'
+      - 'cmake/**'
+      - '.github/workflows/cuda-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================================
+  # CUDA Compilation (Standard GitHub Runners - No GPU)
+  # ==========================================================================
+  cuda-build:
+    name: CUDA Build (CUDA ${{ matrix.cuda_version }}, ${{ matrix.build_type }})
+    runs-on: ubuntu-22.04
+    container:
+      image: nvidia/cuda:${{ matrix.cuda_version }}-devel-ubuntu22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cuda_version: ['11.8.0', '12.0.0', '12.2.0', '12.4.0']
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y git cmake ninja-build ccache
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Report CUDA version
+        run: |
+          nvcc --version
+          echo "CUDA Toolkit: ${{ matrix.cuda_version }}"
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: cuda-${{ matrix.cuda_version }}-${{ matrix.build_type }}
+          max-size: 1G
+
+      - name: Configure CMake
+        run: |
+          cmake -B build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} -G Ninja \
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} \
+            -DLIBACCINT_USE_CUDA=ON \
+            -DLIBACCINT_BUILD_TESTS=ON \
+            -DLIBACCINT_BUILD_EXAMPLES=ON \
+            -DCMAKE_CUDA_ARCHITECTURES="70;80;89" \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CUDA_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} --parallel
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuda-build-${{ matrix.cuda_version }}-${{ matrix.build_type }}
+          path: |
+            build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}/lib*
+            build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}/tests/
+          retention-days: 1
+
+  # ==========================================================================
+  # CUDA Tests (Self-Hosted GPU Runner)
+  # ==========================================================================
+  cuda-test:
+    name: CUDA Tests (GPU)
+    runs-on: [self-hosted, gpu, cuda]
+    needs: cuda-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    strategy:
+      fail-fast: false
+      matrix:
+        cuda_version: ['12.4.0']
+        build_type: [Release]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: cuda-build-${{ matrix.cuda_version }}-${{ matrix.build_type }}
+          path: build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}
+
+      - name: Report GPU info
+        run: nvidia-smi
+
+      - name: Run GPU tests
+        run: |
+          chmod +x build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}/tests/*
+          ctest --test-dir build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} \
+            --output-on-failure \
+            --parallel 1 \
+            -L gpu
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-cuda-gpu-${{ matrix.cuda_version }}-${{ matrix.build_type }}
+          path: build/cuda-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}/Testing/
+          retention-days: 7
+
+  # ==========================================================================
+  # Summary
+  # ==========================================================================
+  summary:
+    name: CUDA CI Summary
+    runs-on: ubuntu-22.04
+    needs: [cuda-build]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.cuda-build.result }}" == "failure" ]]; then
+            echo "::error::CUDA build failed"
+            exit 1
+          fi
+          echo "CUDA CI jobs passed successfully!"

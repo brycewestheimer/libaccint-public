@@ -1,0 +1,76 @@
+{% set name = "libaccint" %}
+{% set version = "0.1.0a2" %}
+{% set tag = "0.1.0-alpha.2" %}
+
+package:
+  name: {{ name }}
+  version: {{ version }}
+
+source:
+  url: https://github.com/brycewestheimer/libaccint-public/releases/download/v{{ tag }}/libaccint-{{ tag }}.tar.gz
+  sha256: b415493c20fa708648091b49ce77c6b151374b5baf350ba81facf66ce52f51b8
+
+build:
+  number: 0
+  skip: true  # [win and vc<14]
+  script:
+    - cmake -B build/release-package -G Ninja -S . -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=$PREFIX -DLIBACCINT_USE_CUDA=OFF -DLIBACCINT_BUILD_TESTS=OFF -DLIBACCINT_BUILD_EXAMPLES=OFF -DLIBACCINT_RELOCATABLE=ON -DLIBACCINT_ALLOW_FETCHCONTENT=OFF  # [unix]
+    - cmake --build build/release-package --parallel  # [unix]
+    - cmake --install build/release-package  # [unix]
+  run_exports:
+    - {{ pin_subpackage(name, max_pin='x.x') }}
+
+requirements:
+  build:
+    - {{ compiler('c') }}
+    - {{ compiler('cxx') }}
+    - cmake >=3.25
+    - ninja
+    - pkg-config
+  host:
+    - llvm-openmp  # [osx]
+    - _openmp_mutex  # [linux]
+    - nlohmann_json
+  run:
+    - llvm-openmp  # [osx]
+    - _openmp_mutex  # [linux]
+
+test:
+  commands:
+    # Verify shared library exists
+    - test -f $PREFIX/lib/libaccint${SHLIB_EXT}  # [unix]
+    - if not exist %LIBRARY_BIN%\\accint.dll exit 1  # [win]
+    
+    # Verify headers are installed
+    - test -f $PREFIX/include/libaccint/libaccint.hpp  # [unix]
+    - if not exist %LIBRARY_INC%\\libaccint\\libaccint.hpp exit 1  # [win]
+    
+    # Verify CMake config is installed
+    - test -f $PREFIX/lib/cmake/LibAccInt/LibAccIntConfig.cmake  # [unix]
+    
+    # Verify pkg-config file
+    - pkg-config --modversion libaccint  # [unix]
+
+about:
+  home: https://github.com/brycewestheimer/libaccint-public
+  license: BSD-3-Clause
+  license_family: BSD
+  license_file: LICENSE
+  summary: High-performance molecular integral library with GPU acceleration
+  description: |
+    LibAccInt is a high-performance C++20 library for computing molecular
+    integrals used in quantum chemistry calculations. It features:
+    - Overlap, kinetic, nuclear attraction, and electron repulsion integrals
+    - GPU acceleration via CUDA
+    - Analytical first and second derivatives (gradients and Hessians)
+    - Schwarz and density screening for efficient large-system computation
+    - Range-separated exchange integrals
+    - Density fitting / RI approximation
+    - Thread-parallel CPU execution with OpenMP
+    - Python bindings via pybind11
+  dev_url: https://github.com/brycewestheimer/libaccint-public
+  doc_url: https://libaccint.readthedocs.io
+
+extra:
+  recipe-maintainers:
+    - brycewestheimer

@@ -1,0 +1,120 @@
+# GPU CI - CUDA nightly GPU testing
+# Task 26.1.4: Scheduled nightly GPU CI
+name: GPU CI (Nightly)
+
+on:
+  schedule:
+    # Run nightly at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      cuda_only:
+        description: 'Run CUDA tests only'
+        type: boolean
+        default: false
+
+concurrency:
+  group: gpu-ci-nightly
+  cancel-in-progress: false
+
+jobs:
+  # ==========================================================================
+  # CUDA Build and Test
+  # ==========================================================================
+  cuda-build:
+    name: CUDA Build (CUDA ${{ matrix.cuda_version }})
+    runs-on: ubuntu-22.04
+    container:
+      image: nvidia/cuda:${{ matrix.cuda_version }}-devel-ubuntu22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        cuda_version: ['11.8.0', '12.2.0', '12.4.0']
+
+    steps:
+      - name: Install dependencies
+        run: |
+          apt-get update
+          apt-get install -y git cmake ninja-build ccache libomp-dev
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure and build
+        run: |
+          cmake -B build/cuda-release -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DLIBACCINT_USE_CUDA=ON \
+            -DLIBACCINT_BUILD_TESTS=ON \
+            -DLIBACCINT_BUILD_EXAMPLES=ON \
+            -DCMAKE_CUDA_ARCHITECTURES="70;80;89;90"
+          cmake --build build/cuda-release --parallel
+
+      - name: Upload build
+        uses: actions/upload-artifact@v4
+        with:
+          name: cuda-build-${{ matrix.cuda_version }}
+          path: |
+            build/cuda-release/lib*
+            build/cuda-release/tests/
+          retention-days: 1
+
+  cuda-test:
+    name: CUDA GPU Tests
+    runs-on: [self-hosted, gpu, cuda]
+    needs: cuda-build
+    strategy:
+      fail-fast: false
+      matrix:
+        cuda_version: ['12.4.0']
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download build
+        uses: actions/download-artifact@v4
+        with:
+          name: cuda-build-${{ matrix.cuda_version }}
+          path: build/cuda-release
+
+      - name: Report GPU info
+        run: nvidia-smi
+
+      - name: Run all tests
+        run: |
+          chmod -R +x build/cuda-release/tests/ 2>/dev/null || true
+          ctest --test-dir build/cuda-release \
+            --output-on-failure \
+            --parallel 1 \
+            --timeout 300
+
+      - name: Run GPU-specific tests
+        run: |
+          ctest --test-dir build/cuda-release \
+            --output-on-failure \
+            -L gpu \
+            --timeout 300
+
+  # ==========================================================================
+  # Summary
+  # ==========================================================================
+  summary:
+    name: GPU CI Summary
+    runs-on: ubuntu-22.04
+    needs: [cuda-build]
+    if: always()
+    steps:
+      - name: Report results
+        run: |
+          echo "## GPU CI Nightly Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Backend | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|---------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| CUDA Build | ${{ needs.cuda-build.result || 'skipped' }} |" >> $GITHUB_STEP_SUMMARY
+
+          if [[ "${{ needs.cuda-build.result }}" == "failure" ]]; then
+            echo "::error::GPU CI nightly build failed"
+            exit 1
+          fi
+          echo "GPU CI nightly completed successfully!"

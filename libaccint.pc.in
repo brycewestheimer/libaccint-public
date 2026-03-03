@@ -1,0 +1,18 @@
+# pkg-config file for LibAccInt
+# Task 26.3.2: pkg-config support
+
+prefix=@CMAKE_INSTALL_PREFIX@
+exec_prefix=${prefix}
+libdir=${prefix}/@CMAKE_INSTALL_LIBDIR@
+includedir=${prefix}/@CMAKE_INSTALL_INCLUDEDIR@
+datarootdir=${prefix}/@CMAKE_INSTALL_DATADIR@
+
+Name: LibAccInt
+Description: High-performance molecular integral library with GPU acceleration
+Version: @PROJECT_VERSION@
+URL: https://github.com/brycewestheimer/libaccint-public
+
+Libs: -L${libdir} -laccint
+Libs.private: @LIBACCINT_PC_PRIVATE_LIBS@
+Cflags: -I${includedir}
+Requires: @LIBACCINT_PC_REQUIRES@

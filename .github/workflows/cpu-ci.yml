@@ -1,0 +1,210 @@
+# CPU CI - Multi-platform build and test workflow for LibAccInt
+name: CPU CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CMAKE_VERSION: 3.28.0
+  NINJA_VERSION: 1.11.1
+
+jobs:
+  # ==========================================================================
+  # Linux Builds
+  # ==========================================================================
+  linux:
+    name: Linux (${{ matrix.compiler }}, ${{ matrix.build_type }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-22.04, ubuntu-24.04]
+        compiler: [gcc-11, gcc-12, gcc-13, clang-15, clang-16, clang-17]
+        build_type: [Debug, Release]
+        exclude:
+          # GCC-13 only on Ubuntu 24.04
+          - os: ubuntu-22.04
+            compiler: gcc-13
+          # Clang-17 only on Ubuntu 24.04
+          - os: ubuntu-22.04
+            compiler: clang-17
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build ccache libomp-dev
+
+      - name: Install compiler
+        run: |
+          if [[ "${{ matrix.compiler }}" == gcc-* ]]; then
+            VERSION="${{ matrix.compiler }#gcc-}"
+            sudo apt-get install -y g++-${VERSION}
+            echo "CC=gcc-${VERSION}" >> $GITHUB_ENV
+            echo "CXX=g++-${VERSION}" >> $GITHUB_ENV
+          else
+            VERSION="${{ matrix.compiler }#clang-}"
+            sudo apt-get install -y clang-${VERSION}
+            echo "CC=clang-${VERSION}" >> $GITHUB_ENV
+            echo "CXX=clang++-${VERSION}" >> $GITHUB_ENV
+          fi
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: linux-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}
+          max-size: 500M
+
+      - name: Configure CMake
+        run: |
+          cmake --preset cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+
+      - name: Build
+        run: cmake --build --preset cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} --output-on-failure --parallel 4
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-linux-${{ matrix.os }}-${{ matrix.compiler }}-${{ matrix.build_type }}
+          path: build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}/Testing/
+          retention-days: 7
+
+  # ==========================================================================
+  # macOS Builds
+  # ==========================================================================
+  macos:
+    name: macOS (${{ matrix.os }}, ${{ matrix.build_type }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-13, macos-14]
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          brew install ninja ccache libomp
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: macos-${{ matrix.os }}-${{ matrix.build_type }}
+          max-size: 500M
+
+      - name: Configure CMake
+        run: |
+          # Set OpenMP flags for macOS
+          export OpenMP_ROOT=$(brew --prefix libomp)
+          cmake --preset cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} \
+            -DCMAKE_C_COMPILER_LAUNCHER=ccache \
+            -DCMAKE_CXX_COMPILER_LAUNCHER=ccache \
+            -DOpenMP_CXX_FLAGS="-Xpreprocessor -fopenmp -I${OpenMP_ROOT}/include" \
+            -DOpenMP_CXX_LIB_NAMES="omp" \
+            -DOpenMP_omp_LIBRARY="${OpenMP_ROOT}/lib/libomp.dylib"
+
+      - name: Build
+        run: cmake --build --preset cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} --output-on-failure --parallel 4
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-macos-${{ matrix.os }}-${{ matrix.build_type }}
+          path: build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}/Testing/
+          retention-days: 7
+
+  # ==========================================================================
+  # Windows Builds
+  # ==========================================================================
+  windows:
+    name: Windows (MSVC, ${{ matrix.build_type }})
+    runs-on: windows-2022
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup MSVC
+        uses: ilammy/msvc-dev-cmd@v1
+
+      - name: Install Ninja
+        run: choco install ninja
+
+      - name: Setup ccache
+        uses: hendrikmuhs/ccache-action@v1.2
+        with:
+          key: windows-msvc-${{ matrix.build_type }}
+          max-size: 500M
+          variant: sccache
+
+      - name: Configure CMake
+        run: |
+          cmake -B build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} -G Ninja `
+            -DCMAKE_BUILD_TYPE=${{ matrix.build_type }} `
+            -DLIBACCINT_USE_CUDA=OFF `
+            -DLIBACCINT_USE_OPENMP=OFF `
+            -DLIBACCINT_BUILD_TESTS=ON `
+            -DLIBACCINT_BUILD_EXAMPLES=ON `
+            -DCMAKE_C_COMPILER_LAUNCHER=sccache `
+            -DCMAKE_CXX_COMPILER_LAUNCHER=sccache
+
+      - name: Build
+        run: cmake --build build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }} --output-on-failure --parallel 4
+
+      - name: Upload test results on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-windows-${{ matrix.build_type }}
+          path: build/cpu-${{ matrix.build_type == 'Debug' && 'debug' || 'release' }}/Testing/
+          retention-days: 7
+
+  # ==========================================================================
+  # Summary
+  # ==========================================================================
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-22.04
+    needs: [linux, macos, windows]
+    if: always()
+    steps:
+      - name: Check results
+        run: |
+          if [[ "${{ needs.linux.result }}" == "failure" ]] || \
+             [[ "${{ needs.macos.result }}" == "failure" ]] || \
+             [[ "${{ needs.windows.result }}" == "failure" ]]; then
+            echo "::error::One or more CI jobs failed"
+            exit 1
+          fi
+          echo "All CI jobs passed successfully!"

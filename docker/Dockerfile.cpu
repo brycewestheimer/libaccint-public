@@ -1,0 +1,66 @@
+# LibAccInt CPU Docker Image
+# Multi-stage build for optimized image size
+
+FROM ubuntu:22.04 AS builder
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    libomp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy source code
+WORKDIR /build
+COPY . .
+
+# Build library
+RUN cmake --preset cpu-release \
+    -DLIBACCINT_BUILD_TESTS=ON \
+    -DLIBACCINT_BUILD_EXAMPLES=ON \
+    && cmake --build --preset cpu-release --parallel
+
+# Run tests during build to verify
+RUN ctest --test-dir build/cpu-release --output-on-failure
+
+# =============================================================================
+# Runtime image
+# =============================================================================
+FROM ubuntu:22.04 AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libomp5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built artifacts
+COPY --from=builder /build/build/cpu-release/lib* /usr/local/lib/
+COPY --from=builder /build/include /usr/local/include/
+COPY --from=builder /build/share /usr/local/share/libaccint/
+
+# Update library cache
+RUN ldconfig
+
+# Set library path
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+# Default command
+CMD ["/bin/bash"]
+
+# =============================================================================
+# Development image with tests
+# =============================================================================
+FROM builder AS dev
+
+WORKDIR /app
+COPY --from=builder /build .
+
+# Entry point for running tests
+CMD ["ctest", "--test-dir", "build/cpu-release", "--output-on-failure"]

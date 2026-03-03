@@ -1,0 +1,92 @@
+# Code Coverage - Collect and report test coverage for LibAccInt
+name: Coverage
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  coverage:
+    name: Code coverage
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build lcov libomp-dev
+
+      - name: Configure CMake with coverage
+        run: |
+          cmake -B build/coverage -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_FLAGS="--coverage -fprofile-arcs -ftest-coverage" \
+            -DCMAKE_EXE_LINKER_FLAGS="--coverage" \
+            -DLIBACCINT_USE_CUDA=OFF \
+            -DLIBACCINT_USE_OPENMP=ON \
+            -DLIBACCINT_BUILD_TESTS=ON \
+            -DLIBACCINT_BUILD_EXAMPLES=OFF \
+            -DLIBACCINT_USE_ASAN=OFF
+
+      - name: Build
+        run: cmake --build build/coverage --parallel
+
+      - name: Run tests
+        run: ctest --test-dir build/coverage --output-on-failure --parallel 4
+
+      - name: Collect coverage data
+        run: |
+          lcov --capture --directory build/coverage --output-file coverage.info
+          lcov --remove coverage.info \
+            '/usr/*' \
+            '*/tests/*' \
+            '*/build/*' \
+            '*/_deps/*' \
+            '*/googletest/*' \
+            --output-file coverage.info
+          lcov --list coverage.info
+
+      - name: Generate HTML report
+        run: |
+          genhtml coverage.info --output-directory coverage-report
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage-report/
+          retention-days: 30
+
+      - name: Upload to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage.info
+          fail_ci_if_error: false
+          verbose: true
+        env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+      - name: Coverage summary
+        run: |
+          COVERAGE=$(lcov --summary coverage.info 2>&1 | grep "lines" | awk '{print $2}' | tr -d '%')
+          echo "## Coverage Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Line coverage: ${COVERAGE}%" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Check coverage threshold (80%)
+          if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+            echo "⚠️ Coverage is below 80% threshold" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "✅ Coverage meets 80% threshold" >> $GITHUB_STEP_SUMMARY
+          fi
