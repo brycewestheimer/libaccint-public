@@ -1,0 +1,68 @@
+# LibAccInt CUDA Docker Image
+# Based on NVIDIA CUDA image for GPU support
+
+ARG CUDA_VERSION=12.4.0
+FROM nvidia/cuda:${CUDA_VERSION}-devel-ubuntu22.04 AS builder
+
+# Prevent interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    ninja-build \
+    git \
+    libomp-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy source code
+WORKDIR /build
+COPY . .
+
+# Build library with CUDA support
+RUN cmake -B build/cuda-release -G Ninja \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DLIBACCINT_USE_CUDA=ON \
+    -DLIBACCINT_BUILD_TESTS=ON \
+    -DLIBACCINT_BUILD_EXAMPLES=ON \
+    -DCMAKE_CUDA_ARCHITECTURES="70;80;89" \
+    && cmake --build build/cuda-release --parallel
+
+# =============================================================================
+# Runtime image
+# =============================================================================
+ARG CUDA_VERSION=12.4.0
+FROM nvidia/cuda:${CUDA_VERSION}-runtime-ubuntu22.04 AS runtime
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
+    libomp5 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy built artifacts
+COPY --from=builder /build/build/cuda-release/lib* /usr/local/lib/
+COPY --from=builder /build/include /usr/local/include/
+COPY --from=builder /build/share /usr/local/share/libaccint/
+
+# Update library cache
+RUN ldconfig
+
+# Set library path
+ENV LD_LIBRARY_PATH=/usr/local/lib:$LD_LIBRARY_PATH
+
+# Default command
+CMD ["/bin/bash"]
+
+# =============================================================================
+# Development image with tests
+# =============================================================================
+FROM builder AS dev
+
+WORKDIR /app
+COPY --from=builder /build .
+
+# Entry point for running tests
+CMD ["ctest", "--test-dir", "build/cuda-release", "--output-on-failure"]

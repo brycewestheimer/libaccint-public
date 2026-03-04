@@ -1,0 +1,22 @@
+Timing date: 2026-02-24
+System: memory cap MemoryHigh=10G MemoryMax=12G
+Case: H2O / 6-31g / max_iter=120
+
+=== cpu_consumer ===
+run1: 1.26s energy=-88.6219658363
+run2: 1.45s energy=-88.6219658363
+run3: 1.42s energy=-88.6219658363
+avg: 1.376667s
+
+=== gpu_buffer ===
+run1: 6.52s energy=-88.6016168671
+run2: 6.52s energy=-88.6016168671
+run3: 6.56s energy=-88.6016168671
+avg: 6.533333s
+
+=== gpu_consumer ===
+run1: 2.75s energy=-88.6016168671
+run2: 2.06s energy=-88.6016168671
+run3: 1.88s energy=-88.6016168671
+avg: 2.230000s
+

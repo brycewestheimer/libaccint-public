@@ -1,0 +1,33 @@
+# LibAccIntConfig.cmake.in
+# CMake package configuration file for LibAccInt
+
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+# Component-found variables for find_package(LibAccInt COMPONENTS ...)
+set(LibAccInt_cuda_FOUND @LIBACCINT_USE_CUDA@)
+set(LibAccInt_mpi_FOUND @LIBACCINT_USE_MPI@)
+set(LibAccInt_openmp_FOUND @LIBACCINT_USE_OPENMP@)
+
+# Propagate backend dependencies
+if(@LIBACCINT_USE_CUDA@)
+    find_dependency(CUDAToolkit REQUIRED)
+endif()
+
+if(@LIBACCINT_USE_MPI@)
+    find_dependency(MPI REQUIRED COMPONENTS CXX)
+endif()
+
+if(@LIBACCINT_USE_OPENMP@)
+    find_dependency(OpenMP REQUIRED)
+endif()
+
+# Include the targets file
+include("${CMAKE_CURRENT_LIST_DIR}/LibAccIntTargets.cmake")
+
+if(NOT LibAccInt_FIND_QUIETLY)
+    message(STATUS "Found LibAccInt: ${CMAKE_CURRENT_LIST_DIR}")
+endif()
+
+check_required_components(LibAccInt)

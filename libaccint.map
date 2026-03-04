@@ -1,0 +1,29 @@
+/* libaccint.map — Linker version script for ABI stability
+ *
+ * Task 26.4.3: Symbol versioning for Linux shared libraries
+ *
+ * This file controls which symbols are exported from libaccint.so.
+ * All public C++ symbols in the libaccint namespace are exported.
+ * Internal/implementation symbols are hidden by default.
+ *
+ * Usage: Applied automatically by cmake/abi-version.cmake on Linux.
+ *
+ * Versioning scheme:
+ *   LIBACCINT_1.0 — Initial stable ABI (v1.0.x)
+ *   LIBACCINT_1.1 — New symbols added in v1.1.x (inherits LIBACCINT_1.0)
+ */
+
+LIBACCINT_1.0 {
+    global:
+        /* Export all symbols in the libaccint namespace */
+        extern "C++" {
+            libaccint::*;
+        };
+
+        /* Export C API symbols if any */
+        libaccint_*;
+
+    local:
+        /* Hide everything else (internal implementation, dependencies) */
+        *;
+};

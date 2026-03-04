@@ -1,0 +1,19 @@
+Large cluster run date: 2026-02-24
+System cap: MemoryHigh=10G MemoryMax=12G
+
+===== water_trimer_ccpvdz_gpu_consumer =====
+waters=3 basis=cc-pvdz mode=consumer backend=force-gpu units=angstrom
+time_s=39.91
+GPU available:         yes
+Basis functions:       75
+SCF converged in 53 iterations.
+Total RHF energy:        -284.9381152411 Hartree
+
+===== water_hexamer_ccpvdz_gpu_consumer =====
+waters=6 basis=cc-pvdz mode=consumer backend=force-gpu units=angstrom
+time_s=307.36
+GPU available:         yes
+Basis functions:       150
+SCF converged in 46 iterations.
+Total RHF energy:        -554.3441286318 Hartree
+

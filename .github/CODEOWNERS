@@ -1,0 +1,33 @@
+# CODEOWNERS for LibAccInt
+# See https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-code-owners
+
+# Default owner for everything
+* @brycewestheimer
+
+# Core library
+/src/ @brycewestheimer
+/include/ @brycewestheimer
+
+# GPU backends
+/src/device/cuda/ @brycewestheimer
+
+# Python bindings
+/python/ @brycewestheimer
+
+# Documentation
+/docs/ @brycewestheimer
+
+# Build system
+/CMakeLists.txt @brycewestheimer
+/cmake/ @brycewestheimer
+/CMakePresets.json @brycewestheimer
+
+# CI/CD
+/.github/ @brycewestheimer
+/docker/ @brycewestheimer
+
+# Tests
+/tests/ @brycewestheimer
+
+# Code generation
+/codegen/ @brycewestheimer

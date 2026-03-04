@@ -1,0 +1,7 @@
+# Documentation build requirements
+sphinx>=4.0
+sphinx-rtd-theme>=1.0
+breathe>=4.30
+myst-parser>=0.18
+sphinx-copybutton>=0.5
+nbsphinx>=0.9

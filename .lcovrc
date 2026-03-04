@@ -1,0 +1,13 @@
+# lcov configuration for LibAccInt coverage collection
+
+# Specify the output filename
+#geninfo_gcov_tool = gcov
+
+# External source files exclusion patterns
+geninfo_external = 1
+
+# Don't include branch coverage for now (reduces noise)
+# lcov_branch_coverage = 1
+
+# Exclude patterns for coverage
+# These are applied by lcov --remove

@@ -1,0 +1,156 @@
+# Quality Gate - Enforce quality standards for LibAccInt
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================================
+  # Static Analysis
+  # ==========================================================================
+  static-analysis:
+    name: Static analysis (clang-tidy)
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build clang-tidy-17 libomp-dev
+
+      - name: Configure CMake
+        run: |
+          cmake -B build/static-analysis -G Ninja \
+            -DCMAKE_BUILD_TYPE=Debug \
+            -DCMAKE_CXX_COMPILER=clang++-17 \
+            -DCMAKE_C_COMPILER=clang-17 \
+            -DLIBACCINT_USE_CUDA=OFF \
+            -DLIBACCINT_BUILD_TESTS=ON \
+            -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
+
+      - name: Run clang-tidy
+        run: |
+          # Find all source files
+          find src include -name "*.cpp" -o -name "*.hpp" | head -100 | \
+          xargs -P 4 clang-tidy-17 -p build/static-analysis \
+            --warnings-as-errors='*' \
+            --quiet \
+            2>&1 | tee clang-tidy-output.txt || true
+
+      - name: Check for high-severity findings
+        run: |
+          if grep -E "(error:|warning:)" clang-tidy-output.txt | grep -v "note:"; then
+            echo "::warning::Static analysis found issues. Review clang-tidy-output.txt"
+          else
+            echo "No high-severity static analysis findings"
+          fi
+
+      - name: Upload analysis results
+        uses: actions/upload-artifact@v4
+        with:
+          name: static-analysis-results
+          path: clang-tidy-output.txt
+          retention-days: 7
+
+  # ==========================================================================
+  # Format Check
+  # ==========================================================================
+  format-check:
+    name: Code formatting
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install clang-format
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format-17
+
+      - name: Check formatting
+        run: |
+          find src include -name "*.cpp" -o -name "*.hpp" | \
+          xargs clang-format-17 --dry-run --Werror 2>&1 || {
+            echo "::error::Code formatting issues found. Run 'clang-format -i' on the files."
+            exit 1
+          }
+
+  # ==========================================================================
+  # Commit Message Lint
+  # ==========================================================================
+  commit-lint:
+    name: Commit message lint
+    runs-on: ubuntu-22.04
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install commitlint
+        run: |
+          npm install --save-dev @commitlint/cli @commitlint/config-conventional
+
+      - name: Create commitlint config
+        run: |
+          echo "module.exports = { extends: ['@commitlint/config-conventional'] };" > commitlint.config.js
+
+      - name: Lint commits
+        run: |
+          npx commitlint --from ${{ github.event.pull_request.base.sha }} --to ${{ github.event.pull_request.head.sha }} --verbose
+        continue-on-error: true
+
+  # ==========================================================================
+  # Quality Gate Summary
+  # ==========================================================================
+  quality-summary:
+    name: Quality gate summary
+    runs-on: ubuntu-22.04
+    needs: [static-analysis, format-check]
+    if: always()
+
+    steps:
+      - name: Generate summary
+        run: |
+          echo "## Quality Gate Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          # Static analysis status
+          if [[ "${{ needs.static-analysis.result }}" == "success" ]]; then
+            echo "✅ Static analysis: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "⚠️ Static analysis: ${{ needs.static-analysis.result }}" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          # Format check status
+          if [[ "${{ needs.format-check.result }}" == "success" ]]; then
+            echo "✅ Code formatting: Passed" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "❌ Code formatting: Failed" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Check gate status
+        run: |
+          if [[ "${{ needs.format-check.result }}" == "failure" ]]; then
+            echo "::error::Quality gate failed - formatting issues"
+            exit 1
+          fi
+          echo "Quality gate passed!"

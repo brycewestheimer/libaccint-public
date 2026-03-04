@@ -1,0 +1,25 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata below."
+title: "LibAccInt: A Library for Accelerated Integral Calculations"
+version: "0.1.0-alpha.2"
+date-released: 2026-03-03
+license: BSD-3-Clause
+repository-code: "https://github.com/brycewestheimer/libaccint-public"
+url: "https://github.com/brycewestheimer/libaccint-public"
+authors:
+  - family-names: "Westheimer"
+    given-names: "Bryce M."
+    alias: "brycewestheimer"
+    email: "brycewestheimer@users.noreply.github.com"
+    website: "https://github.com/brycewestheimer"
+preferred-citation:
+  type: software
+  title: "LibAccInt: A Library for Accelerated Integral Calculations"
+  version: "0.1.0-alpha.2"
+  date-released: 2026-03-03
+  url: "https://github.com/brycewestheimer/libaccint-public"
+  authors:
+    - family-names: "Westheimer"
+      given-names: "Bryce M."
+      alias: "brycewestheimer"
+  notes: "No manuscript is currently published; manuscript is in preparation."

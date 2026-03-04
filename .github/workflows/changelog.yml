@@ -1,0 +1,152 @@
+# Automated Changelog Generation
+# Task 26.1.2: Generate changelogs from conventional commits
+name: Changelog
+
+on:
+  push:
+    branches: [main]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      from_tag:
+        description: 'Generate changelog from this tag (default: latest tag)'
+        required: false
+        type: string
+      to_ref:
+        description: 'Generate changelog to this ref (default: HEAD)'
+        required: false
+        type: string
+        default: HEAD
+
+concurrency:
+  group: changelog
+  cancel-in-progress: true
+
+jobs:
+  # ==========================================================================
+  # Generate Changelog
+  # ==========================================================================
+  generate:
+    name: Generate changelog
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install changelog tools
+        run: npm install -g conventional-changelog-cli
+
+      - name: Determine version range
+        id: range
+        run: |
+          if [ -n "${{ github.event.inputs.from_tag }}" ]; then
+            FROM_TAG="${{ github.event.inputs.from_tag }}"
+          else
+            FROM_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          fi
+          
+          TO_REF="${{ github.event.inputs.to_ref || 'HEAD' }}"
+          
+          echo "from_tag=$FROM_TAG" >> $GITHUB_OUTPUT
+          echo "to_ref=$TO_REF" >> $GITHUB_OUTPUT
+          echo "Range: $FROM_TAG..$TO_REF"
+
+      - name: Generate changelog from conventional commits
+        run: |
+          # Generate changelog using conventional-changelog
+          conventional-changelog -p angular -i CHANGELOG_GENERATED.md -s -r 0
+          
+          # Also generate a structured changelog from git log
+          FROM_TAG="${{ steps.range.outputs.from_tag }}"
+          TO_REF="${{ steps.range.outputs.to_ref }}"
+          
+          if [ -n "$FROM_TAG" ]; then
+            RANGE="${FROM_TAG}..${TO_REF}"
+          else
+            RANGE="$TO_REF"
+          fi
+          
+          echo "# Generated Changelog" > CHANGELOG_SECTION.md
+          echo "" >> CHANGELOG_SECTION.md
+          echo "## Changes since ${FROM_TAG:-initial commit}" >> CHANGELOG_SECTION.md
+          echo "" >> CHANGELOG_SECTION.md
+          
+          # Group commits by type using conventional commit format
+          echo "### Features" >> CHANGELOG_SECTION.md
+          git log --pretty=format:"- %s (%h)" $RANGE --grep="^feat" 2>/dev/null >> CHANGELOG_SECTION.md || true
+          echo "" >> CHANGELOG_SECTION.md
+          echo "" >> CHANGELOG_SECTION.md
+          
+          echo "### Bug Fixes" >> CHANGELOG_SECTION.md
+          git log --pretty=format:"- %s (%h)" $RANGE --grep="^fix" 2>/dev/null >> CHANGELOG_SECTION.md || true
+          echo "" >> CHANGELOG_SECTION.md
+          echo "" >> CHANGELOG_SECTION.md
+          
+          echo "### Performance" >> CHANGELOG_SECTION.md
+          git log --pretty=format:"- %s (%h)" $RANGE --grep="^perf" 2>/dev/null >> CHANGELOG_SECTION.md || true
+          echo "" >> CHANGELOG_SECTION.md
+          echo "" >> CHANGELOG_SECTION.md
+          
+          echo "### Documentation" >> CHANGELOG_SECTION.md
+          git log --pretty=format:"- %s (%h)" $RANGE --grep="^docs" 2>/dev/null >> CHANGELOG_SECTION.md || true
+          echo "" >> CHANGELOG_SECTION.md
+          echo "" >> CHANGELOG_SECTION.md
+          
+          echo "### Build & CI" >> CHANGELOG_SECTION.md
+          git log --pretty=format:"- %s (%h)" $RANGE --grep="^ci\|^build" 2>/dev/null >> CHANGELOG_SECTION.md || true
+          echo "" >> CHANGELOG_SECTION.md
+          echo "" >> CHANGELOG_SECTION.md
+          
+          echo "### Other Changes" >> CHANGELOG_SECTION.md
+          git log --pretty=format:"- %s (%h)" $RANGE --grep="^chore\|^refactor\|^test\|^style" 2>/dev/null >> CHANGELOG_SECTION.md || true
+          echo "" >> CHANGELOG_SECTION.md
+
+      - name: Upload changelog artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: changelog
+          path: |
+            CHANGELOG_GENERATED.md
+            CHANGELOG_SECTION.md
+          retention-days: 30
+
+      - name: Create PR with updated changelog (on release)
+        if: github.event_name == 'release'
+        run: |
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          # Create branch
+          BRANCH="changelog/update-$(date +%Y%m%d)"
+          git checkout -b "$BRANCH"
+          
+          # Prepend new changelog section to existing CHANGELOG.md
+          if [ -f CHANGELOG_GENERATED.md ]; then
+            cp CHANGELOG.md CHANGELOG.md.bak
+            cp CHANGELOG_GENERATED.md CHANGELOG.md
+            git add CHANGELOG.md
+            git commit -m "docs: update changelog for ${{ github.event.release.tag_name }}"
+            git push origin "$BRANCH"
+            
+            # Create PR
+            gh pr create \
+              --title "docs: update changelog for ${{ github.event.release.tag_name }}" \
+              --body "Automated changelog update for release ${{ github.event.release.tag_name }}" \
+              --base main \
+              --head "$BRANCH"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

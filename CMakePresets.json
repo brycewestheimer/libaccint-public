@@ -1,0 +1,290 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+      }
+    },
+    {
+      "name": "cpu-debug",
+      "displayName": "CPU Debug",
+      "description": "CPU-only build with debug symbols",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LIBACCINT_USE_CUDA": "OFF",
+        "LIBACCINT_USE_OPENMP": "ON",
+        "LIBACCINT_BUILD_TESTS": "ON",
+        "LIBACCINT_BUILD_PYTHON": "OFF",
+        "LIBACCINT_BUILD_EXAMPLES": "ON",
+        "LIBACCINT_BUILD_BENCHMARKS": "OFF",
+        "LIBACCINT_USE_ASAN": "ON"
+      }
+    },
+    {
+      "name": "cpu-release",
+      "displayName": "CPU Release",
+      "description": "CPU-only build with optimizations",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LIBACCINT_USE_CUDA": "OFF",
+        "LIBACCINT_USE_OPENMP": "ON",
+        "LIBACCINT_BUILD_TESTS": "ON",
+        "LIBACCINT_BUILD_PYTHON": "OFF",
+        "LIBACCINT_BUILD_EXAMPLES": "ON",
+        "LIBACCINT_BUILD_BENCHMARKS": "OFF"
+      }
+    },
+    {
+      "name": "release-package",
+      "displayName": "Release Package",
+      "description": "Relocatable CPU release build for packaging workflows",
+      "inherits": "cpu-release",
+      "cacheVariables": {
+        "LIBACCINT_RELOCATABLE": "ON",
+        "LIBACCINT_ALLOW_FETCHCONTENT": "OFF",
+        "LIBACCINT_BUILD_TESTS": "OFF",
+        "LIBACCINT_BUILD_EXAMPLES": "OFF"
+      }
+    },
+    {
+      "name": "cuda-debug",
+      "displayName": "CUDA Debug",
+      "description": "CUDA-enabled build with debug symbols",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LIBACCINT_USE_CUDA": "ON",
+        "LIBACCINT_USE_OPENMP": "ON",
+        "LIBACCINT_BUILD_TESTS": "ON",
+        "LIBACCINT_BUILD_PYTHON": "OFF",
+        "LIBACCINT_BUILD_EXAMPLES": "ON",
+        "LIBACCINT_BUILD_BENCHMARKS": "OFF"
+      }
+    },
+    {
+      "name": "cuda-release",
+      "displayName": "CUDA Release",
+      "description": "CUDA-enabled build with optimizations",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LIBACCINT_USE_CUDA": "ON",
+        "LIBACCINT_USE_OPENMP": "ON",
+        "LIBACCINT_BUILD_TESTS": "ON",
+        "LIBACCINT_BUILD_PYTHON": "OFF",
+        "LIBACCINT_BUILD_EXAMPLES": "ON",
+        "LIBACCINT_BUILD_BENCHMARKS": "OFF"
+      }
+    },
+    {
+      "name": "cuda-release-safe",
+      "displayName": "CUDA Release Safe",
+      "description": "CUDA build for low-process/low-memory environments (WSL2-safe defaults, Python mini-app focused)",
+      "inherits": "cuda-release",
+      "cacheVariables": {
+        "LIBACCINT_BUILD_TESTS": "OFF",
+        "LIBACCINT_BUILD_PYTHON": "ON",
+        "LIBACCINT_BUILD_EXAMPLES": "OFF",
+        "LIBACCINT_BUILD_BENCHMARKS": "OFF",
+        "LIBACCINT_ENABLE_CPU_GENERATED_REGISTRY": "OFF",
+        "LIBACCINT_ENABLE_CUDA_GENERATED_REGISTRY": "OFF",
+        "LIBACCINT_CUDA_HEAVY_TU_COMPILE_JOBS": "1",
+        "LIBACCINT_CUDA_HEAVY_TU_OPT_LEVEL": "1",
+        "LIBACCINT_MAX_AM": "2"
+      }
+    },
+    {
+      "name": "cuda-release-safe-mpi-tests",
+      "displayName": "CUDA Release Safe MPI Tests",
+      "description": "WSL2-safe CUDA+MPI test build using system OpenMPI and capped heavy-TU concurrency",
+      "inherits": "cuda-release-safe",
+      "binaryDir": "${sourceDir}/build/${presetName}",
+      "cacheVariables": {
+        "LIBACCINT_USE_MPI": "ON",
+        "LIBACCINT_BUILD_TESTS": "ON",
+        "LIBACCINT_BUILD_PYTHON": "OFF",
+        "GTest_DIR": "/usr/lib/x86_64-linux-gnu/cmake/GTest",
+        "Eigen3_DIR": "/usr/share/eigen3/cmake",
+        "MPI_CXX_COMPILER": "/usr/bin/mpicxx",
+        "MPI_CXX_HEADER_DIR": "/usr/lib/x86_64-linux-gnu/openmpi/include",
+        "MPI_CXX_COMPILER_INCLUDE_DIRS": "/usr/lib/x86_64-linux-gnu/openmpi/include;/usr/lib/x86_64-linux-gnu/openmpi/include/openmpi",
+        "MPI_CXX_LIB_NAMES": "mpi_cxx;mpi",
+        "MPI_mpi_cxx_LIBRARY": "/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi_cxx.so",
+        "MPI_mpi_LIBRARY": "/usr/lib/x86_64-linux-gnu/openmpi/lib/libmpi.so",
+        "MPIEXEC_EXECUTABLE": "/usr/bin/mpirun",
+        "CMAKE_CUDA_COMPILER": "/usr/local/cuda-12.6/bin/nvcc",
+        "CUDAToolkit_ROOT": "/usr/local/cuda-12.6",
+        "CMAKE_FIND_USE_PACKAGE_REGISTRY": "FALSE"
+      }
+    },
+    {
+      "name": "all-debug",
+      "displayName": "All Backends Debug",
+      "description": "All backends enabled with debug symbols",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Debug",
+        "LIBACCINT_USE_CUDA": "AUTO",
+        "LIBACCINT_USE_OPENMP": "ON",
+        "LIBACCINT_BUILD_TESTS": "ON",
+        "LIBACCINT_BUILD_PYTHON": "OFF",
+        "LIBACCINT_BUILD_EXAMPLES": "ON",
+        "LIBACCINT_BUILD_BENCHMARKS": "OFF"
+      }
+    },
+    {
+      "name": "all-release",
+      "displayName": "All Backends Release",
+      "description": "All backends enabled with optimizations",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "LIBACCINT_USE_CUDA": "AUTO",
+        "LIBACCINT_USE_OPENMP": "ON",
+        "LIBACCINT_BUILD_TESTS": "ON",
+        "LIBACCINT_BUILD_PYTHON": "OFF",
+        "LIBACCINT_BUILD_EXAMPLES": "ON",
+        "LIBACCINT_BUILD_BENCHMARKS": "OFF"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "cpu-debug",
+      "displayName": "CPU Debug Build",
+      "configurePreset": "cpu-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "cpu-release",
+      "displayName": "CPU Release Build",
+      "configurePreset": "cpu-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "release-package",
+      "displayName": "Release Package Build",
+      "configurePreset": "release-package",
+      "configuration": "Release"
+    },
+    {
+      "name": "cuda-debug",
+      "displayName": "CUDA Debug Build",
+      "configurePreset": "cuda-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "cuda-release",
+      "displayName": "CUDA Release Build",
+      "configurePreset": "cuda-release",
+      "configuration": "Release"
+    },
+    {
+      "name": "cuda-release-safe",
+      "displayName": "CUDA Release Safe Build",
+      "configurePreset": "cuda-release-safe",
+      "configuration": "Release",
+      "jobs": 1
+    },
+    {
+      "name": "cuda-release-safe-mpi-tests",
+      "displayName": "CUDA Release Safe MPI Test Build",
+      "configurePreset": "cuda-release-safe-mpi-tests",
+      "configuration": "Release",
+      "jobs": 6
+    },
+    {
+      "name": "all-debug",
+      "displayName": "All Backends Debug Build",
+      "configurePreset": "all-debug",
+      "configuration": "Debug"
+    },
+    {
+      "name": "all-release",
+      "displayName": "All Backends Release Build",
+      "configurePreset": "all-release",
+      "configuration": "Release"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "cpu-debug",
+      "displayName": "CPU Debug Tests",
+      "configurePreset": "cpu-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "ignore"
+      }
+    },
+    {
+      "name": "cpu-release",
+      "displayName": "CPU Release Tests",
+      "configurePreset": "cpu-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "ignore"
+      }
+    },
+    {
+      "name": "release-package",
+      "displayName": "Release Package Tests",
+      "configurePreset": "release-package",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "ignore"
+      }
+    },
+    {
+      "name": "cuda-debug",
+      "displayName": "CUDA Debug Tests",
+      "configurePreset": "cuda-debug",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "ignore"
+      }
+    },
+    {
+      "name": "cuda-release",
+      "displayName": "CUDA Release Tests",
+      "configurePreset": "cuda-release",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "noTestsAction": "ignore"
+      }
+    },
+    {
+      "name": "cuda-release-safe-mpi-tests",
+      "displayName": "CUDA Release Safe MPI Tests",
+      "configurePreset": "cuda-release-safe-mpi-tests",
+      "output": {
+        "outputOnFailure": true
+      },
+      "execution": {
+        "jobs": 6,
+        "noTestsAction": "ignore"
+      }
+    }
+  ]
+}

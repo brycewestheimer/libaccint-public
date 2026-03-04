@@ -1,0 +1,68 @@
+[build-system]
+requires = ["scikit-build-core>=0.5", "pybind11>=2.11", "numpy>=1.20"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "libaccint"
+version = "0.1.0a2"
+description = "High-performance molecular integral library with GPU acceleration"
+readme = "README.md"
+license = {text = "BSD-3-Clause"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Bryce M. Westheimer"},
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Programming Language :: C++",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Chemistry",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+dependencies = [
+    "numpy>=1.20",
+]
+
+[project.optional-dependencies]
+dev = ["pytest", "pytest-cov"]
+
+[project.urls]
+Homepage = "https://github.com/brycewestheimer/libaccint-public"
+Documentation = "https://libaccint.readthedocs.io"
+Repository = "https://github.com/brycewestheimer/libaccint-public"
+Issues = "https://github.com/brycewestheimer/libaccint-public/issues"
+
+[tool.scikit-build]
+cmake.build-type = "Release"
+cmake.args = [
+    "-DLIBACCINT_USE_CUDA=OFF",
+    "-DLIBACCINT_BUILD_TESTS=OFF",
+    "-DLIBACCINT_BUILD_EXAMPLES=OFF",
+    "-DLIBACCINT_BUILD_PYTHON=ON",
+    "-DLIBACCINT_RELOCATABLE=ON",
+    "-DLIBACCINT_ALLOW_FETCHCONTENT=OFF",
+]
+
+[tool.cibuildwheel]
+build = "cp39-* cp310-* cp311-* cp312-*"
+skip = "*-win32 *-manylinux_i686 *-musllinux*"
+
+[tool.cibuildwheel.linux]
+manylinux-x86_64-image = "manylinux2014"
+before-all = "yum install -y ninja-build"
+environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+
+[tool.cibuildwheel.macos]
+before-all = "brew install ninja libomp"
+environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }
+
+[tool.cibuildwheel.windows]
+before-all = "choco install ninja"
+environment = { CMAKE_BUILD_PARALLEL_LEVEL = "4" }

@@ -1,0 +1,52 @@
+/* Custom CSS for LibAccInt documentation */
+
+/* Improve code block readability */
+.highlight {
+    background: #f8f8f8;
+    border-radius: 4px;
+    padding: 0.5em;
+}
+
+/* API documentation styling */
+.breathe-sectiondef {
+    margin-top: 1em;
+    padding-top: 1em;
+    border-top: 1px solid #e1e4e5;
+}
+
+/* Better table styling */
+table.docutils {
+    border-collapse: collapse;
+    width: 100%;
+}
+
+table.docutils td, table.docutils th {
+    padding: 8px;
+    border: 1px solid #e1e4e5;
+}
+
+table.docutils th {
+    background-color: #f8f8f8;
+}
+
+/* Math equation styling */
+.math {
+    font-size: 1.1em;
+}
+
+/* Note and warning boxes */
+.admonition {
+    margin: 1em 0;
+    padding: 1em;
+    border-radius: 4px;
+}
+
+.admonition-title {
+    font-weight: bold;
+    margin-bottom: 0.5em;
+}
+
+/* Improve navigation */
+.wy-nav-content {
+    max-width: 900px;
+}

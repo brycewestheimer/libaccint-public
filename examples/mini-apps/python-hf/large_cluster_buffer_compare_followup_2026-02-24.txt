@@ -1,0 +1,33 @@
+Follow-up large cluster run date: 2026-02-24
+System cap: MemoryHigh=10G MemoryMax=12G
+Strategy: full trimer compare; bounded-iteration hexamer buffer/compare
+
+===== water_trimer_ccpvdz_compare_full =====
+waters=3 basis=cc-pvdz mode=compare backend=force-gpu units=angstrom max_iter=120
+exit_code=0
+time_s=292.94
+GPU available:         yes
+Basis functions:       75
+  [compare] max|J_buffer-J_consumer|=3.553e-15  max|K_buffer-K_consumer|=3.553e-15
+SCF converged in 53 iterations.
+Total RHF energy:        -284.9381152411 Hartree
+
+===== water_hexamer_ccpvdz_gpu_buffer_iter5 =====
+waters=6 basis=cc-pvdz mode=buffer backend=force-gpu units=angstrom max_iter=5
+exit_code=1
+time_s=Traceback(mostrecentcalllast):File"/home/westh/portfolio/programming/libaccint/examples/mini-apps/python-hf/hf.py",line447,in<module>main()~~~~^^File"/home/westh/portfolio/programming/libaccint/examples/mini-apps/python-hf/hf.py",line443,inmainrun_rhf(args)~~~~~~~^^^^^^File"/home/westh/portfolio/programming/libaccint/examples/mini-apps/python-hf/hf.py",line367,inrun_rhfraiseRuntimeError(f"SCFdidnotconvergewithin{args.max_iter}iterations.Lastenergy:{e_old:.10f}")RuntimeError:SCFdidnotconvergewithin5iterations.Lastenergy:-555.4857105532Commandexitedwithnon-zerostatus1361.00
+GPU available:         yes
+Basis functions:       150
+Convergence line missing
+Total RHF energy missing
+
+===== water_hexamer_ccpvdz_compare_iter5 =====
+waters=6 basis=cc-pvdz mode=compare backend=force-gpu units=angstrom max_iter=5
+exit_code=1
+time_s=Traceback(mostrecentcalllast):File"/home/westh/portfolio/programming/libaccint/examples/mini-apps/python-hf/hf.py",line447,in<module>main()~~~~^^File"/home/westh/portfolio/programming/libaccint/examples/mini-apps/python-hf/hf.py",line443,inmainrun_rhf(args)~~~~~~~^^^^^^File"/home/westh/portfolio/programming/libaccint/examples/mini-apps/python-hf/hf.py",line367,inrun_rhfraiseRuntimeError(f"SCFdidnotconvergewithin{args.max_iter}iterations.Lastenergy:{e_old:.10f}")RuntimeError:SCFdidnotconvergewithin5iterations.Lastenergy:-555.4857105532Commandexitedwithnon-zerostatus1386.82
+GPU available:         yes
+Basis functions:       150
+  [compare] max|J_buffer-J_consumer|=1.421e-14  max|K_buffer-K_consumer|=2.776e-15
+Convergence line missing
+Total RHF energy missing
+
