@@ -1153,6 +1153,12 @@ add_executable(test_comprehensive_validation validation/test_comprehensive_valid
 target_link_libraries(test_comprehensive_validation PRIVATE libaccint GTest::gtest_main Eigen3::Eigen)
 gtest_discover_tests(test_comprehensive_validation PROPERTIES TIMEOUT 600)
 
+# Water cluster validation (N=1,2,4,8 with aug-cc-pVTZ vs PySCF reference)
+add_executable(test_water_cluster_validation validation/test_water_cluster_validation.cpp)
+target_link_libraries(test_water_cluster_validation PRIVATE
+    libaccint GTest::gtest_main Eigen3::Eigen nlohmann_json::nlohmann_json)
+gtest_discover_tests(test_water_cluster_validation PROPERTIES TIMEOUT 1200)
+
 # =============================================================================
 # Benchmarks (optional)
 # =============================================================================
@@ -1259,6 +1265,10 @@ endif()
 # CPU vs GPU benchmark (standalone, no Google Benchmark dependency)
 add_executable(bench_cpu_vs_gpu benchmark/bench_cpu_vs_gpu.cpp)
 target_link_libraries(bench_cpu_vs_gpu PRIVATE libaccint)
+
+# Water cluster scaling benchmark (standalone, no Google Benchmark dependency)
+add_executable(bench_water_cluster_scaling benchmark/bench_water_cluster_scaling.cpp)
+target_link_libraries(bench_water_cluster_scaling PRIVATE libaccint)
 
 # Optimal dispatch benchmark (standalone, CUDA only — benchmarks all variants)
 add_executable(bench_optimal_dispatch benchmark/bench_optimal_dispatch.cpp)

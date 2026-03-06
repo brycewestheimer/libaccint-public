@@ -21,6 +21,8 @@ cmake_install.cmake
 
 # AI assistant working directory
 .claude/
+CLAUDE.md
+REVIEW.md
 
 # IDE
 .vscode/
@@ -61,6 +63,13 @@ local/
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Large generated reference data (regenerate via tests/reference/*.py)
+tests/data/reference/water_4_aug_cc_pVTZ.json
+tests/data/reference/water_8_aug_cc_pVTZ.json
+
+# Benchmark output
+water_cluster_benchmark.md
 
 # Logs
 *.log
