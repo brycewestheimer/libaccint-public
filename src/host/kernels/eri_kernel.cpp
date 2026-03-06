@@ -94,72 +94,69 @@ namespace {
 /// @param B01 Ket internal recursion coefficient
 /// @param B00 Bra-ket coupling coefficient
 /// @param[out] I 4D recursion table [La+Lb+1][Lb+1][Lc+Ld+1][Ld+1]
+/// @brief Build 2D Rys recursion table using a flat buffer (no heap allocation)
+///
+/// @param La,Lb,Lc,Ld Angular momentum values
+/// @param PA_eff,QC_eff,AB,CD Recursion displacements
+/// @param B10,B01,B00 Recursion coefficients
+/// @param I Flat buffer of size dim_a * dim_b * dim_c * dim_d (pre-allocated)
+/// @param dim_a,dim_b,dim_c,dim_d Table dimensions
 void build_2d_rys(int La, int Lb, int Lc, int Ld,
                    Real PA_eff, Real QC_eff, Real AB, Real CD,
                    Real B10, Real B01, Real B00,
-                   std::vector<std::vector<std::vector<std::vector<Real>>>>& I) {
-    // Dimensions: need (a+b) in first index for HRR transfer
-    const int dim_a = La + Lb + 1;
-    const int dim_b = Lb + 1;
-    const int dim_c = Lc + Ld + 1;
-    const int dim_d = Ld + 1;
+                   Real* I, int dim_a, int dim_b, int dim_c, int dim_d) {
+    // 4D indexing: I[a][b][c][d] = I[a * (dim_b*dim_c*dim_d) + b * (dim_c*dim_d) + c * dim_d + d]
+    const int stride_a = dim_b * dim_c * dim_d;
+    const int stride_b = dim_c * dim_d;
+    const int stride_c = dim_d;
+    auto idx = [=](int a, int b, int c, int d) {
+        return a * stride_a + b * stride_b + c * stride_c + d;
+    };
 
-    // Allocate and zero
-    I.assign(dim_a, std::vector<std::vector<std::vector<Real>>>(
-        dim_b, std::vector<std::vector<Real>>(
-            dim_c, std::vector<Real>(dim_d, 0.0))));
+    // Zero the buffer
+    std::fill_n(I, dim_a * dim_b * dim_c * dim_d, Real{0});
 
     // Step 1: Build (a, 0 | c, 0) via VRR
-    // Base case
-    I[0][0][0][0] = 1.0;
+    I[idx(0,0,0,0)] = 1.0;
 
     // First build up 'a' with c=0
     for (int a = 0; a < La + Lb; ++a) {
-        I[a + 1][0][0][0] = PA_eff * I[a][0][0][0];
+        I[idx(a+1,0,0,0)] = PA_eff * I[idx(a,0,0,0)];
         if (a > 0) {
-            I[a + 1][0][0][0] += static_cast<Real>(a) * B10 * I[a - 1][0][0][0];
+            I[idx(a+1,0,0,0)] += static_cast<Real>(a) * B10 * I[idx(a-1,0,0,0)];
         }
     }
 
     // Now build up 'c' for all 'a'
     for (int c = 0; c < Lc + Ld; ++c) {
         for (int a = 0; a <= La + Lb; ++a) {
-            I[a][0][c + 1][0] = QC_eff * I[a][0][c][0];
+            I[idx(a,0,c+1,0)] = QC_eff * I[idx(a,0,c,0)];
             if (c > 0) {
-                I[a][0][c + 1][0] += static_cast<Real>(c) * B01 * I[a][0][c - 1][0];
+                I[idx(a,0,c+1,0)] += static_cast<Real>(c) * B01 * I[idx(a,0,c-1,0)];
             }
             if (a > 0) {
-                I[a][0][c + 1][0] += static_cast<Real>(a) * B00 * I[a - 1][0][c][0];
+                I[idx(a,0,c+1,0)] += static_cast<Real>(a) * B00 * I[idx(a-1,0,c,0)];
             }
         }
     }
 
-    // Rebuild the interleaved parts: for a>0 and c>0 we need to ensure
-    // that we built them correctly. The above approach of first building all 'a'
-    // then all 'c' is correct because:
-    // - When building I(a+1,0,0,0), we only need I(a,0,0,0) and I(a-1,0,0,0)
-    // - When building I(a,0,c+1,0), we need I(a,0,c,0), I(a,0,c-1,0), and I(a-1,0,c,0)
-    //   All of which are already built.
-
     // Step 2: HRR to transfer angular momentum to B (bra side)
-    // I(a, b+1, c, d) = I(a+1, b, c, d) + AB * I(a, b, c, d)
     for (int b = 0; b < Lb; ++b) {
         for (int a = 0; a <= La + Lb - b - 1; ++a) {
             for (int c = 0; c <= Lc + Ld; ++c) {
                 for (int d = 0; d < dim_d; ++d) {
-                    I[a][b + 1][c][d] = I[a + 1][b][c][d] + AB * I[a][b][c][d];
+                    I[idx(a,b+1,c,d)] = I[idx(a+1,b,c,d)] + AB * I[idx(a,b,c,d)];
                 }
             }
         }
     }
 
     // Step 3: HRR to transfer angular momentum to D (ket side)
-    // I(a, b, c, d+1) = I(a, b, c+1, d) + CD * I(a, b, c, d)
     for (int d = 0; d < Ld; ++d) {
         for (int a = 0; a <= La; ++a) {
             for (int b = 0; b <= Lb; ++b) {
                 for (int c = 0; c <= Lc + Ld - d - 1; ++c) {
-                    I[a][b][c][d + 1] = I[a][b][c + 1][d] + CD * I[a][b][c][d];
+                    I[idx(a,b,c,d+1)] = I[idx(a,b,c+1,d)] + CD * I[idx(a,b,c,d)];
                 }
             }
         }
@@ -228,8 +225,13 @@ void compute_eri(const Shell& shell_a, const Shell& shell_b,
     std::vector<double> roots(n_rys_roots);
     std::vector<double> weights(n_rys_roots);
 
-    // Temporary storage for 2D recursion tables
-    std::vector<std::vector<std::vector<std::vector<Real>>>> Ix, Iy, Iz;
+    // Pre-allocate flat buffers for 2D recursion tables (once, not per root)
+    const int dim_a = La + Lb + 1;
+    const int dim_b = Lb + 1;
+    const int dim_c = Lc + Ld + 1;
+    const int dim_d = Ld + 1;
+    const int table_size = dim_a * dim_b * dim_c * dim_d;
+    std::vector<Real> Ix_flat(table_size), Iy_flat(table_size), Iz_flat(table_size);
 
     // Primitive data
     const auto exp_a = shell_a.exponents();
@@ -314,16 +316,27 @@ void compute_eri(const Shell& shell_a, const Shell& shell_b,
                         const Real QC_y_eff = (Q.y - C.y) + rho_over_eta * u * PQ_y;
                         const Real QC_z_eff = (Q.z - C.z) + rho_over_eta * u * PQ_z;
 
-                        // Build 2D recursion tables
+                        // Build 2D recursion tables into pre-allocated flat buffers
                         build_2d_rys(La, Lb, Lc, Ld,
                                      PA_x_eff, QC_x_eff, AB_x, CD_x,
-                                     B10, B01, B00, Ix);
+                                     B10, B01, B00,
+                                     Ix_flat.data(), dim_a, dim_b, dim_c, dim_d);
                         build_2d_rys(La, Lb, Lc, Ld,
                                      PA_y_eff, QC_y_eff, AB_y, CD_y,
-                                     B10, B01, B00, Iy);
+                                     B10, B01, B00,
+                                     Iy_flat.data(), dim_a, dim_b, dim_c, dim_d);
                         build_2d_rys(La, Lb, Lc, Ld,
                                      PA_z_eff, QC_z_eff, AB_z, CD_z,
-                                     B10, B01, B00, Iz);
+                                     B10, B01, B00,
+                                     Iz_flat.data(), dim_a, dim_b, dim_c, dim_d);
+
+                        // Flat indexing helper
+                        const int stride_a = dim_b * dim_c * dim_d;
+                        const int stride_b = dim_c * dim_d;
+                        const int stride_c = dim_d;
+                        auto idx = [=](int a, int b, int c, int d) {
+                            return a * stride_a + b * stride_b + c * stride_c + d;
+                        };
 
                         // Weighted coefficient
                         const Real wcoeff = coeff * w;
@@ -339,9 +352,9 @@ void compute_eri(const Shell& shell_a, const Shell& shell_b,
                                         const auto& [dx, dy, dz] = indices_d[id];
 
                                         const Real val =
-                                            Ix[ax][bx][cx][dx] *
-                                            Iy[ay][by][cy][dy] *
-                                            Iz[az][bz][cz][dz];
+                                            Ix_flat[idx(ax,bx,cx,dx)] *
+                                            Iy_flat[idx(ay,by,cy,dy)] *
+                                            Iz_flat[idx(az,bz,cz,dz)];
 
                                         buffer(ia, ib, ic, id) += wcoeff * val;
                                     }

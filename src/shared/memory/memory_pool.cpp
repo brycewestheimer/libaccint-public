@@ -115,6 +115,15 @@ void MemoryPool::release(void* ptr, std::size_t size_class) noexcept {
 
     // Return to free list
     free_list.buffers.push_back(ptr);
+
+    // Track high-water mark
+    std::size_t current_bytes = 0;
+    for (std::size_t i = 0; i < pool_config::NUM_SIZE_CLASSES; ++i) {
+        current_bytes += free_lists_[i].buffers.size() * free_lists_[i].buffer_size;
+    }
+    if (current_bytes > peak_pooled_bytes_) {
+        peak_pooled_bytes_ = current_bytes;
+    }
 }
 
 void MemoryPool::clear() noexcept {
@@ -123,6 +132,15 @@ void MemoryPool::clear() noexcept {
             aligned_free(ptr);
         }
         free_list.buffers.clear();
+    }
+}
+
+void MemoryPool::trim(std::size_t max_per_class) noexcept {
+    for (auto& free_list : free_lists_) {
+        while (free_list.buffers.size() > max_per_class) {
+            aligned_free(free_list.buffers.back());
+            free_list.buffers.pop_back();
+        }
     }
 }
 
@@ -137,6 +155,7 @@ MemoryPool::Stats MemoryPool::stats() const noexcept {
         s.current_pooled += free_lists_[i].buffers.size();
         s.current_pooled_bytes += free_lists_[i].buffers.size() * free_lists_[i].buffer_size;
     }
+    s.peak_pooled_bytes = peak_pooled_bytes_;
 
     return s;
 }

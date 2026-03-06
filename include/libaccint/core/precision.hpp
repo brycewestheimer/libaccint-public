@@ -24,6 +24,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <numbers>
 #include <type_traits>
 #include <cmath>
 
@@ -209,37 +210,37 @@ struct PrecisionTraits<double> {
 template<>
 struct Constants<float> {
     /// Pi (π)
-    static constexpr float pi = 3.14159265f;
+    static constexpr float pi = std::numbers::pi_v<float>;
 
     /// Two times Pi (2π)
-    static constexpr float two_pi = 6.28318531f;
+    static constexpr float two_pi = 2.0f * std::numbers::pi_v<float>;
 
     /// Pi squared (π²)
-    static constexpr float pi_squared = 9.86960440f;
+    static constexpr float pi_squared = std::numbers::pi_v<float> * std::numbers::pi_v<float>;
 
     /// Square root of Pi (√π)
-    static constexpr float sqrt_pi = 1.77245385f;
+    static constexpr float sqrt_pi = static_cast<float>(1.7724538509055159);
 
     /// Pi to the 3/2 power (π^(3/2))
-    static constexpr float pi_3_2 = 5.56832800f;
+    static constexpr float pi_3_2 = static_cast<float>(5.5683279968317078);
 
     /// One over Pi (1/π)
-    static constexpr float one_over_pi = 0.31830989f;
+    static constexpr float one_over_pi = std::numbers::inv_pi_v<float>;
 
     /// One over sqrt(Pi) (1/√π)
-    static constexpr float one_over_sqrt_pi = 0.56418958f;
+    static constexpr float one_over_sqrt_pi = std::numbers::inv_sqrtpi_v<float>;
 
     /// Natural logarithm of 2 (ln 2)
-    static constexpr float ln_2 = 0.69314718f;
+    static constexpr float ln_2 = std::numbers::ln2_v<float>;
 
     /// Euler's constant (e)
-    static constexpr float e = 2.71828183f;
+    static constexpr float e = std::numbers::e_v<float>;
 
     /// Square root of 2 (√2)
-    static constexpr float sqrt_2 = 1.41421356f;
+    static constexpr float sqrt_2 = std::numbers::sqrt2_v<float>;
 
     /// One over sqrt(2) (1/√2)
-    static constexpr float one_over_sqrt_2 = 0.70710678f;
+    static constexpr float one_over_sqrt_2 = 1.0f / std::numbers::sqrt2_v<float>;
 
     /// Machine epsilon for float
     static constexpr float epsilon = PrecisionTraits<float>::epsilon;
@@ -259,37 +260,37 @@ struct Constants<float> {
 template<>
 struct Constants<double> {
     /// Pi (π)
-    static constexpr double pi = 3.14159265358979323846264338327950288;
+    static constexpr double pi = std::numbers::pi_v<double>;
 
     /// Two times Pi (2π)
-    static constexpr double two_pi = 6.28318530717958647692528676655900577;
+    static constexpr double two_pi = 2.0 * std::numbers::pi_v<double>;
 
     /// Pi squared (π²)
-    static constexpr double pi_squared = 9.86960440108935861883449099987615114;
+    static constexpr double pi_squared = std::numbers::pi_v<double> * std::numbers::pi_v<double>;
 
     /// Square root of Pi (√π)
-    static constexpr double sqrt_pi = 1.77245385090551602729816748334114518;
+    static constexpr double sqrt_pi = 1.7724538509055159;
 
     /// Pi to the 3/2 power (π^(3/2))
-    static constexpr double pi_3_2 = 5.56832799683170784528481798212053514;
+    static constexpr double pi_3_2 = 5.5683279968317078;
 
     /// One over Pi (1/π)
-    static constexpr double one_over_pi = 0.31830988618379067153776752674502872;
+    static constexpr double one_over_pi = std::numbers::inv_pi_v<double>;
 
     /// One over sqrt(Pi) (1/√π)
-    static constexpr double one_over_sqrt_pi = 0.56418958354775628694807945156077259;
+    static constexpr double one_over_sqrt_pi = std::numbers::inv_sqrtpi_v<double>;
 
     /// Natural logarithm of 2 (ln 2)
-    static constexpr double ln_2 = 0.69314718055994530941723212145817657;
+    static constexpr double ln_2 = std::numbers::ln2_v<double>;
 
     /// Euler's constant (e)
-    static constexpr double e = 2.71828182845904523536028747135266250;
+    static constexpr double e = std::numbers::e_v<double>;
 
     /// Square root of 2 (√2)
-    static constexpr double sqrt_2 = 1.41421356237309504880168872420969808;
+    static constexpr double sqrt_2 = std::numbers::sqrt2_v<double>;
 
     /// One over sqrt(2) (1/√2)
-    static constexpr double one_over_sqrt_2 = 0.70710678118654752440084436210484904;
+    static constexpr double one_over_sqrt_2 = 1.0 / std::numbers::sqrt2_v<double>;
 
     /// Machine epsilon for double
     static constexpr double epsilon = PrecisionTraits<double>::epsilon;

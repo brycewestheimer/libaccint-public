@@ -369,7 +369,7 @@ private:
 
 template<typename Consumer>
 void CpuEngine::compute_and_consume_impl(const Operator& op, Consumer& consumer) {
-    static_assert(EriConsumer<Consumer>,
+    static_assert(TwoElectronConsumer<Consumer>,
         "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
         "Index, Index, Index, Index, int, int, int, int)");
 
@@ -436,7 +436,7 @@ template<typename Consumer>
 void CpuEngine::compute_shell_set_quartet(const Operator& op,
                                         const ShellSetQuartet& quartet,
                                         Consumer& consumer) {
-    static_assert(EriConsumer<Consumer>,
+    static_assert(TwoElectronConsumer<Consumer>,
         "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
         "Index, Index, Index, Index, int, int, int, int)");
     static_assert(ParallelConsumer<Consumer>,
@@ -553,7 +553,7 @@ void CpuEngine::compute_shell_set_quartet(const Operator& op,
 template<typename Consumer>
 void CpuEngine::compute_and_consume_parallel(const Operator& op, Consumer& consumer,
                                            [[maybe_unused]] int n_threads) {
-    static_assert(EriConsumer<Consumer>,
+    static_assert(TwoElectronConsumer<Consumer>,
         "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
         "Index, Index, Index, Index, int, int, int, int)");
     static_assert(ParallelConsumer<Consumer>,

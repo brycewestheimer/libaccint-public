@@ -7,7 +7,7 @@
 /// @brief Device memory management for GPU backends (CUDA)
 
 #include <libaccint/config.hpp>
-#include <libaccint/utils/error_handling.hpp>
+#include <libaccint/core/backend.hpp>
 
 #include <cstddef>
 #include <string>
@@ -28,10 +28,10 @@ namespace libaccint::memory {
 /**
  * @brief Exception for CUDA-specific errors
  *
- * Inherits from BackendException and includes file/line information
+ * Inherits from BackendError and includes file/line information
  * for better debugging.
  */
-class CudaError : public BackendException {
+class CudaError : public BackendError {
 public:
     /**
      * @brief Construct a CudaError with message and source location
@@ -40,8 +40,8 @@ public:
      * @param line Line number where the error occurred
      */
     CudaError(const std::string& message, const char* file, int line)
-        : BackendException("CUDA",
-                           message + " (at " + file + ":" + std::to_string(line) + ")"),
+        : BackendError(BackendType::CUDA,
+                       message + " (at " + file + ":" + std::to_string(line) + ")"),
           file_(file),
           line_(line) {}
 

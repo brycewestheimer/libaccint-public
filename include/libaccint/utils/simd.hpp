@@ -20,7 +20,10 @@
 #include <array>
 
 // Detect available SIMD support
-#if defined(__AVX2__) || defined(__AVX__)
+#if defined(__AVX512F__)
+    #include <immintrin.h>
+    #define LIBACCINT_SIMD_AVX512 1
+#elif defined(__AVX2__) || defined(__AVX__)
     #include <immintrin.h>
     #define LIBACCINT_SIMD_AVX2 1
 #elif defined(__SSE4_1__) || defined(__SSE2__)
@@ -37,7 +40,21 @@ namespace libaccint::simd {
 // SIMD Type Traits and Constants
 // ============================================================================
 
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+
+/// @brief SIMD vector type for double-precision (AVX-512)
+using SimdDouble = __m512d;
+
+/// @brief SIMD width (number of doubles per vector)
+inline constexpr int simd_width = 8;
+
+/// @brief Required alignment for SIMD loads/stores
+inline constexpr std::size_t simd_alignment = 64;
+
+/// @brief SIMD instruction set name
+inline constexpr const char* simd_isa_name = "AVX-512";
+
+#elif defined(LIBACCINT_SIMD_AVX2)
 
 /// @brief SIMD vector type for double-precision
 using SimdDouble = __m256d;
@@ -85,7 +102,9 @@ inline constexpr const char* simd_isa_name = "Scalar";
 /// @param p Pointer to aligned memory (must be simd_alignment aligned)
 /// @return SIMD vector containing loaded values
 inline SimdDouble load(const double* p) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_load_pd(p);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_load_pd(p);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_load_pd(p);
@@ -98,7 +117,9 @@ inline SimdDouble load(const double* p) noexcept {
 /// @param p Pointer to memory (alignment not required)
 /// @return SIMD vector containing loaded values
 inline SimdDouble loadu(const double* p) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_loadu_pd(p);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_loadu_pd(p);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_loadu_pd(p);
@@ -111,7 +132,9 @@ inline SimdDouble loadu(const double* p) noexcept {
 /// @param x Value to broadcast
 /// @return SIMD vector with x in all lanes
 inline SimdDouble broadcast(double x) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_set1_pd(x);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_set1_pd(x);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_set1_pd(x);
@@ -122,7 +145,9 @@ inline SimdDouble broadcast(double x) noexcept {
 
 /// @brief Create a SIMD vector with all zeros
 inline SimdDouble zero() noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_setzero_pd();
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_setzero_pd();
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_setzero_pd();
@@ -139,7 +164,9 @@ inline SimdDouble zero() noexcept {
 /// @param p Pointer to aligned memory (must be simd_alignment aligned)
 /// @param v Vector to store
 inline void store(double* p, SimdDouble v) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    _mm512_store_pd(p, v);
+#elif defined(LIBACCINT_SIMD_AVX2)
     _mm256_store_pd(p, v);
 #elif defined(LIBACCINT_SIMD_SSE)
     _mm_store_pd(p, v);
@@ -152,7 +179,9 @@ inline void store(double* p, SimdDouble v) noexcept {
 /// @param p Pointer to memory (alignment not required)
 /// @param v Vector to store
 inline void storeu(double* p, SimdDouble v) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    _mm512_storeu_pd(p, v);
+#elif defined(LIBACCINT_SIMD_AVX2)
     _mm256_storeu_pd(p, v);
 #elif defined(LIBACCINT_SIMD_SSE)
     _mm_storeu_pd(p, v);
@@ -167,7 +196,9 @@ inline void storeu(double* p, SimdDouble v) noexcept {
 
 /// @brief Add two vectors element-wise
 inline SimdDouble add(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_add_pd(a, b);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_add_pd(a, b);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_add_pd(a, b);
@@ -178,7 +209,9 @@ inline SimdDouble add(SimdDouble a, SimdDouble b) noexcept {
 
 /// @brief Subtract two vectors element-wise (a - b)
 inline SimdDouble sub(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_sub_pd(a, b);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_sub_pd(a, b);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_sub_pd(a, b);
@@ -189,7 +222,9 @@ inline SimdDouble sub(SimdDouble a, SimdDouble b) noexcept {
 
 /// @brief Multiply two vectors element-wise
 inline SimdDouble mul(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_mul_pd(a, b);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_mul_pd(a, b);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_mul_pd(a, b);
@@ -200,7 +235,9 @@ inline SimdDouble mul(SimdDouble a, SimdDouble b) noexcept {
 
 /// @brief Divide two vectors element-wise (a / b)
 inline SimdDouble div(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_div_pd(a, b);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_div_pd(a, b);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_div_pd(a, b);
@@ -212,7 +249,9 @@ inline SimdDouble div(SimdDouble a, SimdDouble b) noexcept {
 /// @brief Fused multiply-add: a * b + c
 /// @note Uses FMA instruction if available for better precision and performance
 inline SimdDouble fma(SimdDouble a, SimdDouble b, SimdDouble c) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2) && defined(__FMA__)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_fmadd_pd(a, b, c);
+#elif defined(LIBACCINT_SIMD_AVX2) && defined(__FMA__)
     return _mm256_fmadd_pd(a, b, c);
 #elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_add_pd(_mm256_mul_pd(a, b), c);
@@ -225,7 +264,9 @@ inline SimdDouble fma(SimdDouble a, SimdDouble b, SimdDouble c) noexcept {
 
 /// @brief Fused multiply-subtract: a * b - c
 inline SimdDouble fms(SimdDouble a, SimdDouble b, SimdDouble c) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2) && defined(__FMA__)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_fmsub_pd(a, b, c);
+#elif defined(LIBACCINT_SIMD_AVX2) && defined(__FMA__)
     return _mm256_fmsub_pd(a, b, c);
 #elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_sub_pd(_mm256_mul_pd(a, b), c);
@@ -238,7 +279,9 @@ inline SimdDouble fms(SimdDouble a, SimdDouble b, SimdDouble c) noexcept {
 
 /// @brief Fused negative multiply-add: -a * b + c = c - a*b
 inline SimdDouble fnma(SimdDouble a, SimdDouble b, SimdDouble c) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2) && defined(__FMA__)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_fnmadd_pd(a, b, c);
+#elif defined(LIBACCINT_SIMD_AVX2) && defined(__FMA__)
     return _mm256_fnmadd_pd(a, b, c);
 #elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_sub_pd(c, _mm256_mul_pd(a, b));
@@ -251,7 +294,9 @@ inline SimdDouble fnma(SimdDouble a, SimdDouble b, SimdDouble c) noexcept {
 
 /// @brief Negate a vector
 inline SimdDouble neg(SimdDouble a) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_sub_pd(_mm512_setzero_pd(), a);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_xor_pd(a, _mm256_set1_pd(-0.0));
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_xor_pd(a, _mm_set1_pd(-0.0));
@@ -266,7 +311,9 @@ inline SimdDouble neg(SimdDouble a) noexcept {
 
 /// @brief Compute square root element-wise
 inline SimdDouble sqrt(SimdDouble a) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_sqrt_pd(a);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_sqrt_pd(a);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_sqrt_pd(a);
@@ -278,7 +325,9 @@ inline SimdDouble sqrt(SimdDouble a) noexcept {
 /// @brief Compute 1/sqrt(a) element-wise (fast reciprocal sqrt approximation)
 /// @note This uses hardware approximation when available; may not be exact
 inline SimdDouble rsqrt(SimdDouble a) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_div_pd(_mm512_set1_pd(1.0), _mm512_sqrt_pd(a));
+#elif defined(LIBACCINT_SIMD_AVX2)
     // No direct rsqrt_pd in AVX2; use reciprocal of sqrt
     return _mm256_div_pd(_mm256_set1_pd(1.0), _mm256_sqrt_pd(a));
 #elif defined(LIBACCINT_SIMD_SSE)
@@ -290,7 +339,9 @@ inline SimdDouble rsqrt(SimdDouble a) noexcept {
 
 /// @brief Compute absolute value element-wise
 inline SimdDouble abs(SimdDouble a) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_abs_pd(a);
+#elif defined(LIBACCINT_SIMD_AVX2)
     // Clear sign bit
     return _mm256_andnot_pd(_mm256_set1_pd(-0.0), a);
 #elif defined(LIBACCINT_SIMD_SSE)
@@ -302,7 +353,9 @@ inline SimdDouble abs(SimdDouble a) noexcept {
 
 /// @brief Compute minimum element-wise
 inline SimdDouble min(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_min_pd(a, b);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_min_pd(a, b);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_min_pd(a, b);
@@ -313,7 +366,9 @@ inline SimdDouble min(SimdDouble a, SimdDouble b) noexcept {
 
 /// @brief Compute maximum element-wise
 inline SimdDouble max(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_max_pd(a, b);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_max_pd(a, b);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_max_pd(a, b);
@@ -328,7 +383,9 @@ inline SimdDouble max(SimdDouble a, SimdDouble b) noexcept {
 
 /// @brief Horizontal sum (reduce to scalar by adding all lanes)
 inline double reduce_add(SimdDouble v) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    return _mm512_reduce_add_pd(v);
+#elif defined(LIBACCINT_SIMD_AVX2)
     // Sum pairs: [a+c, b+d, a+c, b+d]
     __m256d sum1 = _mm256_hadd_pd(v, v);
     // Extract high 128 bits and add to low 128 bits
@@ -349,7 +406,11 @@ inline double reduce_add(SimdDouble v) noexcept {
 template<int I>
 inline double extract(SimdDouble v) noexcept {
     static_assert(I >= 0 && I < simd_width, "Lane index out of range");
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    alignas(64) double temp[8];
+    _mm512_store_pd(temp, v);
+    return temp[I];
+#elif defined(LIBACCINT_SIMD_AVX2)
     // Extract to temp array
     alignas(32) double temp[4];
     _mm256_store_pd(temp, v);
@@ -369,7 +430,10 @@ inline double extract(SimdDouble v) noexcept {
 
 /// @brief Compare for less-than (returns mask)
 inline SimdDouble cmp_lt(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    __mmask8 k = _mm512_cmp_pd_mask(a, b, _CMP_LT_OQ);
+    return _mm512_maskz_mov_pd(k, _mm512_set1_pd(-1.0));
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_cmp_pd(a, b, _CMP_LT_OQ);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_cmplt_pd(a, b);
@@ -380,7 +444,10 @@ inline SimdDouble cmp_lt(SimdDouble a, SimdDouble b) noexcept {
 
 /// @brief Compare for greater-than (returns mask)
 inline SimdDouble cmp_gt(SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    __mmask8 k = _mm512_cmp_pd_mask(a, b, _CMP_GT_OQ);
+    return _mm512_maskz_mov_pd(k, _mm512_set1_pd(-1.0));
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_cmp_pd(a, b, _CMP_GT_OQ);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_cmpgt_pd(a, b);
@@ -391,7 +458,11 @@ inline SimdDouble cmp_gt(SimdDouble a, SimdDouble b) noexcept {
 
 /// @brief Blend/select based on mask: (mask ? a : b)
 inline SimdDouble blend(SimdDouble mask, SimdDouble a, SimdDouble b) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    // Convert double mask to __mmask8 (non-zero lanes → 1)
+    __mmask8 k = _mm512_cmp_pd_mask(mask, _mm512_setzero_pd(), _CMP_NEQ_OQ);
+    return _mm512_mask_blend_pd(k, b, a);
+#elif defined(LIBACCINT_SIMD_AVX2)
     return _mm256_blendv_pd(b, a, mask);
 #elif defined(LIBACCINT_SIMD_SSE)
     return _mm_blendv_pd(b, a, mask);
@@ -412,7 +483,43 @@ inline SimdDouble blend(SimdDouble mask, SimdDouble a, SimdDouble b) noexcept {
 ///
 /// Accuracy: ~1e-14 relative error across valid range.
 inline SimdDouble exp(SimdDouble x) noexcept {
-#if defined(LIBACCINT_SIMD_AVX2)
+#if defined(LIBACCINT_SIMD_AVX512)
+    // AVX-512 polynomial exp approximation (same algorithm as AVX2, 8-wide)
+    const __m512d LOG2E = _mm512_set1_pd(1.4426950408889634);
+    const __m512d LN2_HI = _mm512_set1_pd(0.6931471805599453);
+    const __m512d LN2_LO = _mm512_set1_pd(2.3190468138462996e-17);
+    const __m512d ONE = _mm512_set1_pd(1.0);
+
+    const __m512d C1 = _mm512_set1_pd(1.0);
+    const __m512d C2 = _mm512_set1_pd(0.5);
+    const __m512d C3 = _mm512_set1_pd(0.16666666666666666);
+    const __m512d C4 = _mm512_set1_pd(0.041666666666666664);
+    const __m512d C5 = _mm512_set1_pd(0.008333333333333333);
+    const __m512d C6 = _mm512_set1_pd(0.001388888888888889);
+    const __m512d C7 = _mm512_set1_pd(0.0001984126984126984);
+
+    // Range reduction: x = n*ln(2) + r
+    __m512d t = _mm512_mul_pd(x, LOG2E);
+    __m512d n = _mm512_roundscale_pd(t, _MM_FROUND_TO_NEAREST_INT | _MM_FROUND_NO_EXC);
+
+    // r = x - n*ln(2) (high precision)
+    __m512d r = _mm512_sub_pd(x, _mm512_mul_pd(n, LN2_HI));
+    r = _mm512_sub_pd(r, _mm512_mul_pd(n, LN2_LO));
+
+    // Horner's method for polynomial
+    __m512d p = C7;
+    p = _mm512_fmadd_pd(p, r, C6);
+    p = _mm512_fmadd_pd(p, r, C5);
+    p = _mm512_fmadd_pd(p, r, C4);
+    p = _mm512_fmadd_pd(p, r, C3);
+    p = _mm512_fmadd_pd(p, r, C2);
+    p = _mm512_fmadd_pd(p, r, C1);
+    p = _mm512_fmadd_pd(p, r, ONE);
+
+    // Scale by 2^n using _mm512_scalef_pd
+    return _mm512_scalef_pd(p, n);
+
+#elif defined(LIBACCINT_SIMD_AVX2)
     // Constants
     const __m256d LOG2E = _mm256_set1_pd(1.4426950408889634);
     const __m256d LN2_HI = _mm256_set1_pd(0.6931471805599453);

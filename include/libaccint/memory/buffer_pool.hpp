@@ -26,6 +26,7 @@ struct BatchBufferPoolStats {
     Size pool_hits{0};          ///< Number of times a pooled buffer was reused
     Size pool_misses{0};        ///< Number of times a new buffer was allocated
     Size total_bytes_allocated{0}; ///< Total bytes allocated (including reused)
+    Size total_dropped{0};      ///< Number of buffers dropped due to per-class cap
 };
 
 /// @brief Reusable buffer pool for IntegralBuffer storage
@@ -51,6 +52,9 @@ struct BatchBufferPoolStats {
 /// @endcode
 class BatchBufferPool {
 public:
+    /// @brief Maximum number of buffers to keep per AM class
+    static constexpr Size max_buffers_per_class = 8;
+
     /// @brief Default constructor
     BatchBufferPool() = default;
 
@@ -100,12 +104,22 @@ public:
     /// @param quartet The ShellSetQuartet the buffer was used for (for keying)
     void release(IntegralBuffer&& buffer, const ShellSetQuartet& quartet) {
         AMClass key = get_am_class(quartet);
-        free_lists_[key].push_back(std::move(buffer));
+        auto& list = free_lists_[key];
+        if (list.size() < max_buffers_per_class) {
+            list.push_back(std::move(buffer));
+        } else {
+            ++stats_.total_dropped;
+        }
     }
 
     /// @brief Release an IntegralBuffer back to the pool with explicit AM class
     void release(IntegralBuffer&& buffer, const AMClass& key) {
-        free_lists_[key].push_back(std::move(buffer));
+        auto& list = free_lists_[key];
+        if (list.size() < max_buffers_per_class) {
+            list.push_back(std::move(buffer));
+        } else {
+            ++stats_.total_dropped;
+        }
     }
 
     /// @brief Get pool usage statistics

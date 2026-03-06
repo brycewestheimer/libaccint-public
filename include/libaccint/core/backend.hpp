@@ -8,6 +8,7 @@
 
 #include <libaccint/config.hpp>
 #include <libaccint/core/types.hpp>
+#include <libaccint/utils/error_handling.hpp>
 
 #include <memory>
 #include <string>
@@ -107,10 +108,10 @@ private:
 // ============================================================================
 
 /// Exception thrown for backend-related errors
-class BackendError : public std::runtime_error {
+class BackendError : public Exception {
 public:
     BackendError(BackendType backend, const std::string& message)
-        : std::runtime_error(std::string(backend_name(backend)) + ": " + message)
+        : Exception(std::string(backend_name(backend)) + ": " + message)
         , backend_(backend)
     {}
 

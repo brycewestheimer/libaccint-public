@@ -11,6 +11,8 @@
 #include <limits>
 #include <stdexcept>
 #include <string>
+#include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace libaccint::math {
@@ -266,6 +268,27 @@ void gauss_legendre_01(int M, double* nodes, double* wts) {
     }
 }
 
+/// @brief Cached wrapper for gauss_legendre_01
+///
+/// Thread-local cache mapping grid size M to precomputed GL nodes/weights.
+/// Avoids recomputing the QL eigensolver each time Stieltjes is invoked.
+void gauss_legendre_01_cached(int M, const double*& nodes, const double*& wts) {
+    using GLGrid = std::pair<std::vector<double>, std::vector<double>>;
+    thread_local std::unordered_map<int, GLGrid> gl_cache;
+
+    auto it = gl_cache.find(M);
+    if (it == gl_cache.end()) {
+        GLGrid grid;
+        grid.first.resize(M);
+        grid.second.resize(M);
+        gauss_legendre_01(M, grid.first.data(), grid.second.data());
+        auto [ins_it, _] = gl_cache.emplace(M, std::move(grid));
+        it = ins_it;
+    }
+    nodes = it->second.first.data();
+    wts = it->second.second.data();
+}
+
 } // anonymous namespace
 
 /// @brief Compute recurrence coefficients via discretized Stieltjes procedure
@@ -278,8 +301,9 @@ static void rys_stieltjes(int n, double T, double* alpha, double* beta) {
     // polynomials accurately. M >= 4n suffices; use at least 100.
     const int M = std::max(100, 6 * n);
 
-    std::vector<double> gl_nodes(M), gl_weights(M);
-    gauss_legendre_01(M, gl_nodes.data(), gl_weights.data());
+    const double* gl_nodes = nullptr;
+    const double* gl_weights = nullptr;
+    gauss_legendre_01_cached(M, gl_nodes, gl_weights);
 
     // Precompute: u_j = t_j² and combined weights w_j = gl_w_j × exp(-T t_j²)
     std::vector<double> u(M), w(M);

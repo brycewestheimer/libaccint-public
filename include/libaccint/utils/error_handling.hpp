@@ -57,15 +57,6 @@ public:
 };
 
 /**
- * @brief Backend-specific error (CUDA)
- */
-class BackendException : public Exception {
-public:
-    explicit BackendException(const std::string& backend, const std::string& message)
-        : Exception(backend + " error: " + message) {}
-};
-
-/**
  * @brief Numerical error (overflow, underflow, convergence failure)
  */
 class NumericalException : public Exception {

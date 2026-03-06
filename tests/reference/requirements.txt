@@ -1,0 +1,5 @@
+# Python dependencies for reference data generation
+# Used by generate_reference.py, generate_math_reference.py, generate_higher_am_reference.py
+numpy>=1.21
+mpmath>=1.3
+pyscf>=2.4

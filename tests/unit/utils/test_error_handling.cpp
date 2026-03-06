@@ -5,6 +5,7 @@
 /// @brief Unit tests for error handling and exception classes
 
 #include <gtest/gtest.h>
+#include <libaccint/core/backend.hpp>
 #include <libaccint/utils/error_handling.hpp>
 
 namespace libaccint {
@@ -151,35 +152,43 @@ TEST(ExceptionTest, MemoryExceptionMessage) {
 }
 
 // ============================================================================
-// Test BackendException
+// Test BackendError
 // ============================================================================
 
-TEST(ExceptionTest, BackendExceptionThrow) {
+TEST(ExceptionTest, BackendErrorThrow) {
     EXPECT_THROW(
-        throw BackendException("CUDA", "kernel launch failed"),
-        BackendException
+        throw BackendError(BackendType::CUDA, "kernel launch failed"),
+        BackendError
     );
 }
 
-TEST(ExceptionTest, BackendExceptionCatchByType) {
+TEST(ExceptionTest, BackendErrorCatchByType) {
     try {
-        throw BackendException("CUDA", "memory copy failed");
-    } catch (const BackendException& e) {
-        EXPECT_STREQ(e.what(), "CUDA error: memory copy failed");
+        throw BackendError(BackendType::CUDA, "memory copy failed");
+    } catch (const BackendError& e) {
+        EXPECT_STREQ(e.what(), "CUDA: memory copy failed");
     }
 }
 
-TEST(ExceptionTest, BackendExceptionCatchByBase) {
+TEST(ExceptionTest, BackendErrorCatchByBase) {
     try {
-        throw BackendException("CUDA", "synchronization timeout");
+        throw BackendError(BackendType::CUDA, "synchronization timeout");
     } catch (const Exception& e) {
-        EXPECT_STREQ(e.what(), "CUDA error: synchronization timeout");
+        EXPECT_STREQ(e.what(), "CUDA: synchronization timeout");
     }
 }
 
-TEST(ExceptionTest, BackendExceptionMessage) {
-    BackendException ex("CUDA", "invalid device");
-    EXPECT_STREQ(ex.what(), "CUDA error: invalid device");
+TEST(ExceptionTest, BackendErrorMessage) {
+    BackendError ex(BackendType::CUDA, "invalid device");
+    EXPECT_STREQ(ex.what(), "CUDA: invalid device");
+}
+
+TEST(ExceptionTest, BackendErrorBackendType) {
+    BackendError ex(BackendType::CUDA, "test");
+    EXPECT_EQ(ex.backend(), BackendType::CUDA);
+
+    BackendError ex_cpu(BackendType::CPU, "test");
+    EXPECT_EQ(ex_cpu.backend(), BackendType::CPU);
 }
 
 // ============================================================================
@@ -290,7 +299,7 @@ TEST(PolymorphismTest, CatchAllExceptionTypes) {
         []() { throw InvalidStateException("state"); },
         []() { throw NotImplementedException("feature"); },
         []() { throw MemoryException("memory"); },
-        []() { throw BackendException("CUDA", "error"); },
+        []() { throw BackendError(BackendType::CUDA, "error"); },
         []() { throw NumericalException("numerical"); },
     };
 
@@ -318,7 +327,7 @@ TEST(ExceptionHierarchy, CatchByRuntimeError) {
         []() { throw InvalidStateException("state"); },
         []() { throw NotImplementedException("feature"); },
         []() { throw MemoryException("memory"); },
-        []() { throw BackendException("CUDA", "error"); },
+        []() { throw BackendError(BackendType::CUDA, "error"); },
         []() { throw NumericalException("numerical"); },
     };
 
@@ -346,9 +355,9 @@ TEST(ExceptionHierarchy, InvalidArgumentException_IsRuntimeError) {
     }
 }
 
-TEST(ExceptionHierarchy, BackendException_IsRuntimeError) {
+TEST(ExceptionHierarchy, BackendError_IsRuntimeError) {
     try {
-        throw BackendException("CUDA", "device error");
+        throw BackendError(BackendType::CUDA, "device error");
     } catch (const std::runtime_error& e) {
         std::string msg = e.what();
         EXPECT_NE(msg.find("CUDA"), std::string::npos);
@@ -379,8 +388,8 @@ TEST(ExceptionHierarchy, WhatMessage) {
         EXPECT_NE(std::string(e.what()).find("Memory error:"), std::string::npos);
     }
     {
-        BackendException e("GPU", "msg");
-        EXPECT_NE(std::string(e.what()).find("GPU error:"), std::string::npos);
+        BackendError e(BackendType::CUDA, "msg");
+        EXPECT_NE(std::string(e.what()).find("CUDA:"), std::string::npos);
     }
     {
         NumericalException e("msg");
@@ -434,7 +443,7 @@ TEST(ExceptionHierarchy, EmptyMessage) {
         EXPECT_NE(e4.what(), nullptr);
     });
     EXPECT_NO_THROW({
-        BackendException e5("", "");
+        BackendError e5(BackendType::CPU, "");
         EXPECT_NE(e5.what(), nullptr);
     });
     EXPECT_NO_THROW({

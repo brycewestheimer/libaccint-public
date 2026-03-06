@@ -30,11 +30,15 @@ namespace libaccint {
 /// CpuEngine::compute_shell_set_quartet, CudaEngine::compute_shell_set_quartet,
 /// or Engine::compute_and_consume must satisfy this concept.
 template<typename C>
-concept EriConsumer = requires(C& c, const TwoElectronBuffer<0>& buf,
+concept TwoElectronConsumer = requires(C& c, const TwoElectronBuffer<0>& buf,
                                Index fa, Index fb, Index fc, Index fd,
                                int na, int nb, int nc, int nd) {
     c.accumulate(buf, fa, fb, fc, fd, na, nb, nc, nd);
 };
+
+/// @brief Backward-compatible alias for TwoElectronConsumer
+template<typename C>
+concept EriConsumer = TwoElectronConsumer<C>;
 
 /// @brief Symmetry-aware consumer: additionally has accumulate_symmetric()
 ///
@@ -43,7 +47,7 @@ concept EriConsumer = requires(C& c, const TwoElectronBuffer<0>& buf,
 /// and the consumer scatters contributions to all permutation-equivalent
 /// matrix slots.
 template<typename C>
-concept SymmetryAwareConsumer = EriConsumer<C> &&
+concept SymmetryAwareConsumer = TwoElectronConsumer<C> &&
     requires(C& c, const TwoElectronBuffer<0>& buf,
              Index fa, Index fb, Index fc, Index fd,
              int na, int nb, int nc, int nd,
@@ -59,7 +63,7 @@ concept SymmetryAwareConsumer = EriConsumer<C> &&
 /// (to allocate thread-local buffers, etc.) and finalize_parallel() is
 /// called after (to reduce thread-local results).
 template<typename C>
-concept ParallelConsumer = EriConsumer<C> &&
+concept ParallelConsumer = TwoElectronConsumer<C> &&
     requires(C& c, int n_threads) {
         c.prepare_parallel(n_threads);
         c.finalize_parallel();

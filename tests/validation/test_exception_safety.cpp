@@ -14,6 +14,7 @@
 #include <libaccint/core/types.hpp>
 #include <libaccint/data/builtin_basis.hpp>
 #include <libaccint/engine/engine.hpp>
+#include <libaccint/core/backend.hpp>
 #include <libaccint/utils/error_handling.hpp>
 #include <libaccint/utils/input_validation.hpp>
 
@@ -46,7 +47,7 @@ TEST(ExceptionSafety, ExceptionHierarchy) {
         throw MemoryException("test"),
         Exception);
     EXPECT_THROW(
-        throw BackendException("CUDA", "test"),
+        throw BackendError(BackendType::CUDA, "test"),
         Exception);
     EXPECT_THROW(
         throw NumericalException("test"),
@@ -72,7 +73,7 @@ TEST(ExceptionSafety, ExceptionMessages) {
     }
 
     try {
-        throw BackendException("CUDA", "device not found");
+        throw BackendError(BackendType::CUDA, "device not found");
     } catch (const Exception& e) {
         std::string msg = e.what();
         EXPECT_NE(msg.find("CUDA"), std::string::npos);

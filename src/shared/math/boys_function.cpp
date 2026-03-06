@@ -493,34 +493,31 @@ void boys_evaluate_batch_simd(int n_max, const double* T_array, int n_values,
                 __m256d exp_neg_T = simd::exp(neg_T);
                 __m256d two_T = _mm256_add_pd(T_v, T_v);
 
-                // Temporary storage for F_n values
-                alignas(32) double F_n[4];
+                // Keep all F_n values in SIMD registers (stack array)
+                // MAX_AM * 2 + 1 is at most ~17 for G-functions
+                constexpr int MAX_ORDERS = BOYS_MAX_N + 1;
+                __m256d F_regs[MAX_ORDERS];
 
                 // Start with F_{n_max} from Chebyshev
-                __m256d F_current = clenshaw_eval_simd4(
+                F_regs[n_max] = clenshaw_eval_simd4(
                     detail::BOYS_CHEBYSHEV_COEFFICIENTS[interval][n_max],
                     detail::BOYS_CHEB_N_TERMS, x);
 
-                // Store F_{n_max} for each T
-                _mm256_storeu_pd(F_n, F_current);
-                result[(i + 0) * stride + n_max] = F_n[0];
-                result[(i + 1) * stride + n_max] = F_n[1];
-                result[(i + 2) * stride + n_max] = F_n[2];
-                result[(i + 3) * stride + n_max] = F_n[3];
-
-                // Downward recursion: F_{n-1}(T) = (2T * F_n(T) + exp(-T)) / (2n-1)
+                // Downward recursion in registers: F_{n-1} = (2T * F_n + exp(-T)) / (2n-1)
                 for (int n = n_max; n >= 1; --n) {
                     __m256d denom = _mm256_set1_pd(2.0 * n - 1.0);
-                    __m256d F_prev = _mm256_fmadd_pd(two_T, F_current, exp_neg_T);
-                    F_prev = _mm256_div_pd(F_prev, denom);
+                    F_regs[n - 1] = _mm256_div_pd(
+                        _mm256_fmadd_pd(two_T, F_regs[n], exp_neg_T), denom);
+                }
 
-                    _mm256_storeu_pd(F_n, F_prev);
-                    result[(i + 0) * stride + (n - 1)] = F_n[0];
-                    result[(i + 1) * stride + (n - 1)] = F_n[1];
-                    result[(i + 2) * stride + (n - 1)] = F_n[2];
-                    result[(i + 3) * stride + (n - 1)] = F_n[3];
-
-                    F_current = F_prev;
+                // Scatter results from registers to output array
+                alignas(32) double F_tmp[4];
+                for (int n = 0; n <= n_max; ++n) {
+                    _mm256_storeu_pd(F_tmp, F_regs[n]);
+                    result[(i + 0) * stride + n] = F_tmp[0];
+                    result[(i + 1) * stride + n] = F_tmp[1];
+                    result[(i + 2) * stride + n] = F_tmp[2];
+                    result[(i + 3) * stride + n] = F_tmp[3];
                 }
             } else {
                 // Different intervals - process each individually but use SIMD where possible

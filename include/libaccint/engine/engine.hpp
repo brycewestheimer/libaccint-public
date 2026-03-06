@@ -434,7 +434,7 @@ public:
     template<typename Consumer>
     void compute_and_consume(const Operator& op, Consumer& consumer,
                              BackendHint hint = BackendHint::Auto) {
-        static_assert(EriConsumer<Consumer>,
+        static_assert(TwoElectronConsumer<Consumer>,
             "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
             "Index, Index, Index, Index, int, int, int, int)");
 
@@ -520,7 +520,7 @@ public:
                              std::span<const ShellSetQuartet> quartets,
                              Consumer& consumer,
                              BackendHint hint = BackendHint::Auto) {
-        static_assert(EriConsumer<Consumer>,
+        static_assert(TwoElectronConsumer<Consumer>,
             "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
             "Index, Index, Index, Index, int, int, int, int)");
 
@@ -547,7 +547,7 @@ public:
     void compute_and_consume_parallel(const Operator& op, Consumer& consumer,
                                        int n_threads = 0,
                                        BackendHint hint = BackendHint::Auto) {
-        static_assert(EriConsumer<Consumer>,
+        static_assert(TwoElectronConsumer<Consumer>,
             "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
             "Index, Index, Index, Index, int, int, int, int)");
         static_assert(ParallelConsumer<Consumer>,
@@ -598,7 +598,7 @@ public:
         const Operator& op, Consumer& consumer,
         const screening::ScreeningOptions& options,
         int n_threads = 0) {
-        static_assert(EriConsumer<Consumer>,
+        static_assert(TwoElectronConsumer<Consumer>,
             "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
             "Index, Index, Index, Index, int, int, int, int)");
 
@@ -930,6 +930,54 @@ public:
             h_core.add(Operator::nuclear(charges));
             cpu_engine_.compute_1e(h_core, result);
         }
+    }
+
+    // =========================================================================
+    // Return-Value Convenience Overloads
+    // =========================================================================
+
+    /// @brief Compute and return the full overlap matrix
+    /// @param hint Backend selection hint (default: Auto)
+    /// @return Overlap matrix as a flat vector (n_basis x n_basis)
+    [[nodiscard]] std::vector<Real> compute_overlap_matrix(
+            BackendHint hint = BackendHint::Auto) {
+        std::vector<Real> result;
+        compute_overlap_matrix(result, hint);
+        return result;
+    }
+
+    /// @brief Compute and return the full kinetic energy matrix
+    /// @param hint Backend selection hint (default: Auto)
+    /// @return Kinetic energy matrix as a flat vector (n_basis x n_basis)
+    [[nodiscard]] std::vector<Real> compute_kinetic_matrix(
+            BackendHint hint = BackendHint::Auto) {
+        std::vector<Real> result;
+        compute_kinetic_matrix(result, hint);
+        return result;
+    }
+
+    /// @brief Compute and return the full nuclear attraction matrix
+    /// @param charges Point charge parameters (nuclear positions and charges)
+    /// @param hint Backend selection hint (default: Auto)
+    /// @return Nuclear attraction matrix as a flat vector (n_basis x n_basis)
+    [[nodiscard]] std::vector<Real> compute_nuclear_matrix(
+            const PointChargeParams& charges,
+            BackendHint hint = BackendHint::Auto) {
+        std::vector<Real> result;
+        compute_nuclear_matrix(charges, result, hint);
+        return result;
+    }
+
+    /// @brief Compute and return the core Hamiltonian matrix (H = T + V)
+    /// @param charges Point charge parameters (nuclear positions and charges)
+    /// @param hint Backend selection hint (default: Auto)
+    /// @return Core Hamiltonian matrix as a flat vector (n_basis x n_basis)
+    [[nodiscard]] std::vector<Real> compute_core_hamiltonian(
+            const PointChargeParams& charges,
+            BackendHint hint = BackendHint::Auto) {
+        std::vector<Real> result;
+        compute_core_hamiltonian(charges, result, hint);
+        return result;
     }
 
     // =========================================================================
@@ -1587,7 +1635,7 @@ public:
     void compute_and_consume(const Operator& op, Consumer& consumer,
                              const screening::ScreeningOptions& options,
                              BackendHint hint = BackendHint::Auto) {
-        static_assert(EriConsumer<Consumer>,
+        static_assert(TwoElectronConsumer<Consumer>,
             "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
             "Index, Index, Index, Index, int, int, int, int)");
 
@@ -1637,7 +1685,7 @@ private:
                                         Consumer& consumer,
                                         BackendHint hint,
                                         bool canonical_symmetry) {
-        static_assert(EriConsumer<Consumer>,
+        static_assert(TwoElectronConsumer<Consumer>,
             "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
             "Index, Index, Index, Index, int, int, int, int)");
 

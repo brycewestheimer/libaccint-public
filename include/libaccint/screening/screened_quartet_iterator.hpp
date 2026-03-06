@@ -14,6 +14,8 @@
 #include <libaccint/screening/schwarz_bounds.hpp>
 #include <libaccint/screening/density_screening.hpp>
 
+#include <iterator>
+#include <ranges>
 #include <vector>
 #include <optional>
 
@@ -124,5 +126,118 @@ private:
     // Statistics
     ScreeningStatistics stats_;
 };
+
+// ============================================================================
+// Ranges Support
+// ============================================================================
+
+/// @brief Sentinel type for ScreenedQuartetRange
+struct ScreenedQuartetSentinel {};
+
+/// @brief Input iterator adapter for ScreenedQuartetIterator
+///
+/// Wraps the batch-oriented ScreenedQuartetIterator to provide
+/// single-element input iteration for use with range-based for loops
+/// and std::ranges composability.
+class ScreenedQuartetInputIterator {
+public:
+    using iterator_category = std::input_iterator_tag;
+    using value_type = ScreenedQuartet;
+    using difference_type = std::ptrdiff_t;
+    using pointer = const ScreenedQuartet*;
+    using reference = const ScreenedQuartet&;
+
+    ScreenedQuartetInputIterator() = default;
+
+    explicit ScreenedQuartetInputIterator(ScreenedQuartetIterator* iter)
+        : iter_(iter) {
+        fill_buffer();
+    }
+
+    reference operator*() const { return buffer_[pos_]; }
+    pointer operator->() const { return &buffer_[pos_]; }
+
+    ScreenedQuartetInputIterator& operator++() {
+        ++pos_;
+        if (pos_ >= buffer_.size()) {
+            fill_buffer();
+        }
+        return *this;
+    }
+
+    ScreenedQuartetInputIterator operator++(int) {
+        auto tmp = *this;
+        ++(*this);
+        return tmp;
+    }
+
+    friend bool operator==(const ScreenedQuartetInputIterator& it,
+                           ScreenedQuartetSentinel) {
+        return it.exhausted_;
+    }
+
+    friend bool operator==(ScreenedQuartetSentinel s,
+                           const ScreenedQuartetInputIterator& it) {
+        return it == s;
+    }
+
+private:
+    void fill_buffer() {
+        pos_ = 0;
+        buffer_.clear();
+        if (iter_) {
+            auto batch = iter_->next_batch(256);
+            if (batch && !batch->empty()) {
+                buffer_ = std::move(*batch);
+            } else {
+                exhausted_ = true;
+            }
+        } else {
+            exhausted_ = true;
+        }
+    }
+
+    ScreenedQuartetIterator* iter_{nullptr};
+    std::vector<ScreenedQuartet> buffer_;
+    std::size_t pos_{0};
+    bool exhausted_{false};
+};
+
+/// @brief Range adapter for ScreenedQuartetIterator
+///
+/// Allows range-based for loops:
+/// @code
+///   for (const auto& q : ScreenedQuartetRange(basis, 1e-12)) {
+///       // process q
+///   }
+/// @endcode
+class ScreenedQuartetRange {
+public:
+    explicit ScreenedQuartetRange(const BasisSet& basis, Real threshold = 1e-12)
+        : iter_(basis, threshold) {}
+
+    explicit ScreenedQuartetRange(const BasisSet& basis, const ScreeningOptions& options)
+        : iter_(basis, options) {}
+
+    ScreenedQuartetRange(const BasisSet& basis, const SchwarzBounds& bounds, Real threshold)
+        : iter_(basis, bounds, threshold) {}
+
+    [[nodiscard]] ScreenedQuartetInputIterator begin() {
+        iter_.reset();
+        return ScreenedQuartetInputIterator(&iter_);
+    }
+
+    [[nodiscard]] ScreenedQuartetSentinel end() const { return {}; }
+
+    [[nodiscard]] const ScreeningStatistics& statistics() const noexcept {
+        return iter_.statistics();
+    }
+
+private:
+    ScreenedQuartetIterator iter_;
+};
+
+static_assert(std::input_iterator<ScreenedQuartetInputIterator>);
+static_assert(std::sentinel_for<ScreenedQuartetSentinel, ScreenedQuartetInputIterator>);
 
 }  // namespace libaccint::screening

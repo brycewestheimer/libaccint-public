@@ -698,7 +698,7 @@ struct AmBatch {
 
 template<typename Consumer>
 void CudaEngine::compute_and_consume_eri(Consumer& consumer) {
-    static_assert(EriConsumer<Consumer>,
+    static_assert(TwoElectronConsumer<Consumer>,
         "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
         "Index, Index, Index, Index, int, int, int, int)");
 
@@ -793,7 +793,7 @@ void CudaEngine::compute_shell_set_quartet(const Operator& op,
                                             const ShellSetQuartet& quartet,
                                             Consumer& consumer,
                                             bool canonical_symmetry) {
-    static_assert(EriConsumer<Consumer>,
+    static_assert(TwoElectronConsumer<Consumer>,
         "Consumer must provide accumulate(const TwoElectronBuffer<0>&, "
         "Index, Index, Index, Index, int, int, int, int)");
 

@@ -206,6 +206,10 @@ public:
     /// @brief Free all pooled memory
     void clear() noexcept;
 
+    /// @brief Trim each free list to at most max_per_class entries
+    /// @param max_per_class Maximum buffers to retain per size class
+    void trim(std::size_t max_per_class = pool_config::MAX_BUFFERS_PER_CLASS / 2) noexcept;
+
     /// @brief Get statistics about pool usage
     struct Stats {
         std::size_t total_allocations{0};      ///< Total acquire() calls
@@ -214,6 +218,7 @@ public:
         std::size_t current_pooled{0};         ///< Currently pooled buffers
         std::size_t current_pooled_bytes{0};   ///< Currently pooled bytes
         std::size_t oversized_allocations{0};  ///< Allocations too large for pool
+        std::size_t peak_pooled_bytes{0};      ///< High-water mark of pooled bytes
     };
 
     [[nodiscard]] Stats stats() const noexcept;
@@ -232,6 +237,7 @@ private:
     std::size_t pool_hits_{0};
     std::size_t pool_misses_{0};
     std::size_t oversized_allocations_{0};
+    std::size_t peak_pooled_bytes_{0};
 };
 
 // ============================================================================
@@ -265,6 +271,12 @@ template<typename T>
 /// Useful when transitioning between computation phases to reclaim memory.
 inline void pool_clear() noexcept {
     get_thread_local_pool().clear();
+}
+
+/// @brief Trim the thread-local pool, reducing each free list to at most max_per_class entries
+/// @param max_per_class Maximum buffers to retain per size class
+inline void pool_trim(std::size_t max_per_class = pool_config::MAX_BUFFERS_PER_CLASS / 2) noexcept {
+    get_thread_local_pool().trim(max_per_class);
 }
 
 // ============================================================================

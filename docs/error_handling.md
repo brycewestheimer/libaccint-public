@@ -14,18 +14,16 @@ location information.
 std::runtime_error
   |
   +-- libaccint::Exception                    (base for all LibAccInt errors)
-  |     |
-  |     +-- InvalidArgumentException          (bad input parameter)
-  |     +-- InvalidStateException             (invalid configuration or state)
-  |     +-- NotImplementedException           (feature not yet available)
-  |     +-- MemoryException                   (resource allocation failure)
-  |     +-- BackendException                  (GPU backend error, base)
-  |     |     |
-  |     |     +-- memory::CudaError           (CUDA-specific error)
-  |     |
-  |     +-- NumericalException                (overflow, underflow, convergence)
-  |
-  +-- BackendError                            (backend availability/init error)
+        |
+        +-- InvalidArgumentException          (bad input parameter)
+        +-- InvalidStateException             (invalid configuration or state)
+        +-- NotImplementedException           (feature not yet available)
+        +-- MemoryException                   (resource allocation failure)
+        +-- BackendError                      (backend-related error, carries BackendType)
+        |     |
+        |     +-- memory::CudaError           (CUDA-specific error)
+        |
+        +-- NumericalException                (overflow, underflow, convergence)
 ```
 
 ### Exception Classes
@@ -74,13 +72,14 @@ throw NotImplementedException("analytic Hessians", "Phase 6");
 Thrown when memory allocation fails, either on the host or device. The message
 is prefixed with `"Memory error: "`.
 
-**`BackendException`**
+**`BackendError`** (defined in `include/libaccint/core/backend.hpp`)
 
-Thrown for GPU backend errors during computation. Takes the backend name and
-an error message. This is the base class for `CudaError`.
+Thrown for backend-related errors (availability, initialization, GPU errors).
+Inherits from `Exception` and carries the `BackendType` enum value. This is
+the base class for `memory::CudaError`.
 
 ```cpp
-throw BackendException("CUDA", "kernel launch failed: invalid configuration");
+throw BackendError(BackendType::CUDA, "no CUDA-capable device found");
 ```
 
 **`NumericalException`**
@@ -88,16 +87,6 @@ throw BackendException("CUDA", "kernel launch failed: invalid configuration");
 Thrown for numerical issues such as overflow, underflow, or convergence
 failure during integral computation. The message is prefixed with
 `"Numerical error: "`.
-
-**`BackendError`** (defined in `include/libaccint/core/backend.hpp`)
-
-A separate exception (not part of the `Exception` hierarchy) for backend
-availability and initialization errors. Inherits directly from
-`std::runtime_error` and carries the `BackendType` enum value.
-
-```cpp
-throw BackendError(BackendType::CUDA, "no CUDA-capable device found");
-```
 
 ## Assertion Macros
 
@@ -128,7 +117,7 @@ LIBACCINT_NOT_IMPLEMENTED("H-type angular momentum");
 
 CUDA API calls are wrapped with the `LIBACCINT_CUDA_CHECK` macro, defined in
 `include/libaccint/memory/device_memory.hpp`. On failure, it throws a
-`memory::CudaError` exception (which inherits from `BackendException`).
+`memory::CudaError` exception (which inherits from `BackendError`).
 
 ```cpp
 // Wraps a CUDA API call -- throws CudaError on failure
@@ -147,13 +136,13 @@ try {
 }
 ```
 
-`CudaError` inherits from `BackendException`, so a catch block for the base
+`CudaError` inherits from `BackendError`, so a catch block for the base
 class can handle all GPU errors:
 
 ```cpp
 try {
     engine.compute_overlap_matrix(S);
-} catch (const BackendException& e) {
+} catch (const BackendError& e) {
     std::cerr << "GPU error: " << e.what() << "\n";
 }
 ```
@@ -194,7 +183,6 @@ except RuntimeError as e:
 | `InvalidStateException`     | `RuntimeError`               |
 | `NotImplementedException`   | `RuntimeError`               |
 | `MemoryException`           | `RuntimeError`               |
-| `BackendException`          | `RuntimeError`               |
 | `NumericalException`        | `RuntimeError`               |
 | `std::invalid_argument`     | `ValueError`                 |
 | `std::runtime_error`        | `RuntimeError`               |
