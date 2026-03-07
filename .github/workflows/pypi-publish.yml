@@ -188,5 +188,6 @@ jobs:
         continue-on-error: true
 
       - name: Verify import
-        run: python -c "import libaccint; print(f'Installed version: {libaccint.__version__}')"
+        run: |
+          python -c "import libaccint; print(f'Installed version: {libaccint.__version__}')"
         continue-on-error: true

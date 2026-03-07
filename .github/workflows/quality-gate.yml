@@ -25,8 +25,10 @@ jobs:
 
       - name: Install dependencies
         run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" | sudo tee /etc/apt/sources.list.d/llvm-17.list
           sudo apt-get update
-          sudo apt-get install -y ninja-build clang-tidy-17 libomp-dev
+          sudo apt-get install -y ninja-build clang-17 clang-tidy-17 libomp-dev
 
       - name: Configure CMake
         run: |
@@ -75,6 +77,8 @@ jobs:
 
       - name: Install clang-format
         run: |
+          wget -qO- https://apt.llvm.org/llvm-snapshot.gpg.key | sudo gpg --dearmor -o /usr/share/keyrings/llvm.gpg
+          echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/jammy/ llvm-toolchain-jammy-17 main" | sudo tee /etc/apt/sources.list.d/llvm-17.list
           sudo apt-get update
           sudo apt-get install -y clang-format-17
 

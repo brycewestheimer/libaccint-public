@@ -195,6 +195,10 @@ if(NOT nlohmann_json_FOUND)
     set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
     set(JSON_Install OFF CACHE BOOL "" FORCE)
     FetchContent_MakeAvailable(nlohmann_json)
+    # Export FetchContent-provided target so install(EXPORT) succeeds for static lib
+    install(TARGETS nlohmann_json EXPORT LibAccIntTargets
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        INCLUDES DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 endif()
 
 # Eigen for linear algebra in tests and examples (header-only)

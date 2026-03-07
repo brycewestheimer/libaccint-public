@@ -9,11 +9,12 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
     build-essential \
-    cmake \
     ninja-build \
     git \
     libomp-dev \
-    && rm -rf /var/lib/apt/lists/*
+    wget \
+    && rm -rf /var/lib/apt/lists/* \
+    && wget -qO- https://github.com/Kitware/CMake/releases/download/v3.28.0/cmake-3.28.0-linux-x86_64.tar.gz | tar xz -C /usr/local --strip-components=1
 
 # Copy source code
 WORKDIR /build

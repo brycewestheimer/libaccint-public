@@ -43,7 +43,8 @@ jobs:
       - name: Install dependencies
         run: |
           apt-get update
-          apt-get install -y git cmake ninja-build ccache
+          apt-get install -y git ninja-build ccache wget
+          wget -qO- https://github.com/Kitware/CMake/releases/download/v3.28.0/cmake-3.28.0-linux-x86_64.tar.gz | tar xz -C /usr/local --strip-components=1
 
       - name: Checkout repository
         uses: actions/checkout@v4

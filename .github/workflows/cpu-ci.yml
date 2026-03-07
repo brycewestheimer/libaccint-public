@@ -49,12 +49,12 @@ jobs:
       - name: Install compiler
         run: |
           if [[ "${{ matrix.compiler }}" == gcc-* ]]; then
-            VERSION="${{ matrix.compiler }#gcc-}"
+            VERSION=$(echo "${{ matrix.compiler }}" | sed 's/gcc-//')
             sudo apt-get install -y g++-${VERSION}
             echo "CC=gcc-${VERSION}" >> $GITHUB_ENV
             echo "CXX=g++-${VERSION}" >> $GITHUB_ENV
           else
-            VERSION="${{ matrix.compiler }#clang-}"
+            VERSION=$(echo "${{ matrix.compiler }}" | sed 's/clang-//')
             sudo apt-get install -y clang-${VERSION}
             echo "CC=clang-${VERSION}" >> $GITHUB_ENV
             echo "CXX=clang++-${VERSION}" >> $GITHUB_ENV

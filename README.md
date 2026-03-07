@@ -4,7 +4,11 @@
 
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![C++20](https://img.shields.io/badge/C%2B%2B-20-blue.svg)](https://en.cppreference.com/w/cpp/20)
-[![Version](https://img.shields.io/badge/version-0.1.0--alpha.2-orange.svg)](https://github.com/brycewestheimer/libaccint-public/releases/tag/v0.1.0-alpha.2)
+[![Version](https://img.shields.io/badge/version-0.1.0--alpha.2-orange.svg)](https://github.com/brycewestheimer/libaccint-public/releases)
+[![CPU CI](https://github.com/brycewestheimer/libaccint-public/actions/workflows/cpu-ci.yml/badge.svg)](https://github.com/brycewestheimer/libaccint-public/actions/workflows/cpu-ci.yml)
+[![CUDA CI](https://github.com/brycewestheimer/libaccint-public/actions/workflows/cuda-ci.yml/badge.svg)](https://github.com/brycewestheimer/libaccint-public/actions/workflows/cuda-ci.yml)
+[![Quality Gate](https://github.com/brycewestheimer/libaccint-public/actions/workflows/quality-gate.yml/badge.svg)](https://github.com/brycewestheimer/libaccint-public/actions/workflows/quality-gate.yml)
+[![Coverage](https://github.com/brycewestheimer/libaccint-public/actions/workflows/coverage.yml/badge.svg)](https://github.com/brycewestheimer/libaccint-public/actions/workflows/coverage.yml)
 
 > **Alpha Release (v0.1.0-alpha.2):** This alpha release is primarily intended
 > to expose the LibAccInt API and demonstrate basic usage patterns, including the
